@@ -1,0 +1,1428 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Plus, 
+  Search, 
+  Truck, 
+  MapPin, 
+  Calendar, 
+  User, 
+  FileText, 
+  CheckSquare, 
+  AlertCircle, 
+  Package,
+  ArrowRight,
+  Settings,
+  Clock,
+  Trash2,
+  X,
+  Tag,
+  ListChecks, 
+  Download,
+  List,
+  SquarePen 
+} from 'lucide-react';
+
+// Firebase Imports
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInAnonymously, 
+  signInWithCustomToken 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  deleteDoc,
+  doc,
+  serverTimestamp,
+  updateDoc 
+} from 'firebase/firestore';
+
+// --- Firebase Initialization ---
+const firebaseConfig = JSON.parse(__firebase_config || '{}');
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
+
+// Prevent re-initialization
+let app, auth, db;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (e) {
+  console.error("Firebase init error:", e);
+}
+
+// 定義主要藍色
+const PRIMARY_BLUE = '#1e40af';
+
+// --- Main App Component ---
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState('dashboard'); // 'dashboard' | 'form'
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // 新增: 儲存正在編輯的請求物件，用於表單預填
+  const [editingRequest, setEditingRequest] = useState(null); 
+  
+  // 刪除狀態: 用於管理刪除確認視窗
+  const [deleteCandidate, setDeleteCandidate] = useState(null); 
+  // 下載狀態: 用於管理派車單下載預覽 (儲存完整的請求物件)
+  const [downloadCandidate, setDownloadCandidate] = useState(null); 
+
+  // 1. Auth Init
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth failed:", err);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Data Fetching
+  useEffect(() => {
+    if (!user) return;
+    
+    // Using Public collection for multi-user collaboration testing
+    const q = query(
+      collection(db, 'artifacts', appId, 'public', 'data', 'dispatch_requests'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setRequests(data);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Fetch error:", err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Handle Create (新增)
+  const handleCreate = async (formData) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'dispatch_requests'), {
+        ...formData,
+        // status 欄位已移除
+        createdAt: serverTimestamp(),
+        createdBy: user.uid
+      });
+      setView('dashboard');
+    } catch (err) {
+      console.error("新增失敗: ", err.message); 
+    }
+  };
+  
+  // Handle Edit (點擊修改按鈕)
+  const handleEdit = (request) => {
+      setEditingRequest(request);
+      setView('form');
+  };
+  
+  // Handle Update (儲存修改)
+  const handleUpdate = async (formData) => {
+    if (!user || !editingRequest) return;
+    try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'dispatch_requests', editingRequest.id);
+        await updateDoc(docRef, {
+            ...formData,
+            updatedAt: serverTimestamp(), // 新增更新時間戳
+        });
+        setEditingRequest(null); // 清除編輯狀態
+        setView('dashboard');
+    } catch (err) {
+        console.error("更新失敗: ", err.message);
+    }
+  };
+
+  // Handle Cancel (取消新增或修改)
+  const handleCancel = () => {
+      setEditingRequest(null); // 清除編輯狀態
+      setView('dashboard');
+  };
+
+  // 點擊刪除按鈕 -> 顯示確認視窗
+  const handleDelete = (id, projectCode) => {
+    setDeleteCandidate({ id, projectCode });
+  };
+
+  // 點擊列印/下載按鈕 -> 顯示下載視窗 (儲存完整的請求物件)
+  const handleDownloadClick = (request) => {
+    setDownloadCandidate(request);
+  };
+
+  // 確認刪除 -> 執行實際刪除動作
+  const executeDelete = async () => {
+    if (!deleteCandidate || !user) return;
+    const id = deleteCandidate.id;
+    
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'dispatch_requests', id));
+      console.log(`派車單 ${id} 已刪除.`);
+      
+    } catch (err) {
+      console.error("Delete failed", err);
+    } finally {
+      setDeleteCandidate(null); // 關閉視窗
+    }
+  };
+
+
+  // Filter Logic
+  const filteredRequests = useMemo(() => {
+    return requests.filter(r => {
+      const searchStr = searchTerm.toLowerCase();
+      // Added search for dropoffAddress and shippedItems name (if available)
+      const shippedItemsStr = r.shippedItems?.map(item => item.name).join(' ').toLowerCase() || '';
+
+      return (
+        r.applicant?.toLowerCase().includes(searchStr) ||
+        r.projectCode?.toLowerCase().includes(searchStr) || 
+        r.dropoffName?.toLowerCase().includes(searchStr) ||
+        r.dropoffAddress?.toLowerCase().includes(searchStr) || 
+        shippedItemsStr.includes(searchStr) || 
+        r.vehicleCategory?.toLowerCase().includes(searchStr) || 
+        r.vehicleType?.toLowerCase().includes(searchStr) || 
+        // status 篩選已移除
+        r.vendor?.toLowerCase().includes(searchStr) 
+      );
+    });
+  }, [requests, searchTerm]);
+
+  // Stats Logic
+  const stats = useMemo(() => {
+    return {
+      total: requests.length,
+      // pending 統計已移除
+      special: requests.filter(r => r.needs?.length > 0).length
+    };
+  }, [requests]);
+
+  if (!user && loading) return <div className="flex h-screen items-center justify-center text-gray-500">系統連線中...</div>;
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+      {/* Navbar */}
+      <header className="sticky top-0 z-20 bg-white shadow-sm border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleCancel()}>
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <Truck className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">何鑫實業</h1>
+              <p className="text-xs text-slate-500 font-medium">雲端派車調度系統</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+             {view === 'dashboard' && (
+              <button 
+                onClick={() => setView('form')}
+                className="hidden sm:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-sm active:scale-95"
+              >
+                <Plus className="w-5 h-5" />
+                新增派車單
+              </button>
+             )}
+             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
+                <User className="w-5 h-5" />
+             </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {view === 'dashboard' ? (
+          <div className="space-y-6">
+            
+            {/* Stats Cards - Adjusted to 2 columns since status is removed */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <StatCard 
+                title="今日派車單" 
+                value={stats.total} 
+                icon={<FileText className="w-5 h-5 text-blue-600" />}
+                bg="bg-blue-50"
+              />
+              {/* Removed Pending Status Card */}
+              <StatCard 
+                title="特殊需求車次" 
+                value={stats.special} 
+                icon={<Settings className="w-5 h-5 text-purple-600" />} 
+                bg="bg-purple-50"
+              />
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+              <div className="relative w-full sm:w-96">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input 
+                  type="text" 
+                  placeholder="搜尋工案代號、申請人、地點、品項、車型或規格..."
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                 {/* Mobile Add Button */}
+                <button 
+                  onClick={() => setView('form')}
+                  className="sm:hidden flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium"
+                >
+                  <Plus className="w-5 h-5" />
+                  新增
+                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              {loading ? (
+                <div className="p-12 text-center text-slate-400">載入中...</div>
+              ) : filteredRequests.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Truck className="w-8 h-8 text-slate-300" />
+                  </div>
+                  <h3 className="text-lg font-medium text-slate-900">尚無派車資料</h3>
+                  <p className="text-slate-500 mt-1">點擊「新增派車單」開始建立第一筆資料</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        {/* 移除狀態欄位 Header */}
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">排程/申請人</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">專案資訊</th> 
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">車輛/貨物</th> 
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">行程 (上貨 → 下貨)</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">廠商/報價</th> 
+                        <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredRequests.map((req) => (
+                        <tr key={req.id} className="hover:bg-slate-50/50 transition group">
+                          {/* 移除狀態欄位 Cell */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {/* Display schedule times */}
+                            {req.scheduleTimes && req.scheduleTimes.map((sch, index) => (
+                                <div key={index} className="flex items-center gap-1 text-xs text-slate-700">
+                                    <Clock className="w-3 h-3 text-blue-500" />
+                                    <span className="font-medium text-slate-900">{sch.date}</span> @ <span className="text-slate-600">{sch.time}</span>
+                                </div>
+                            ))}
+                            <div className="text-xs text-slate-500 mt-1">申請人: {req.applicant}</div>
+                          </td>
+                          
+                          {/* Project Info: Updated to merged fields */}
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-900 text-sm">{req.projectCode || 'N/A'}</div>
+                            <div className="text-xs text-slate-500 mt-1">
+                                <span className="font-medium text-slate-700">聯絡人:</span> {req.contactPerson || '-'}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                                <span className="font-medium text-slate-700">電話:</span> {req.contactPhone || '-'}
+                            </div>
+                          </td>
+
+                          {/* Vehicle / Cargo Summary */}
+                          <td className="px-6 py-4">
+                             <div className="font-medium text-slate-900 text-sm">{req.vehicleCategory} ({req.vehicleCount}輛)</div>
+                             <div className="text-xs text-slate-500">{req.vehicleType || '無指定規格'}</div> 
+                             {req.shippedItems && req.shippedItems.length > 0 && (
+                                 <div className="text-xs text-purple-600 font-medium mt-1">
+                                     共 {req.shippedItems.length} 項品項
+                                 </div>
+                             )}
+                          </td>
+                          
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1 max-w-[200px]">
+                              <div className="flex items-center gap-1.5 text-slate-600 text-sm truncate">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0"></div>
+                                <span title={req.pickupLoc}>{req.pickupLoc || '無指定'}</span>
+                              </div>
+                              <div className="flex flex-col text-slate-900 font-medium text-sm truncate">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></div>
+                                    <span title={req.dropoffName} className='font-bold'>{req.dropoffName}</span>
+                                </div>
+                                <span className='text-xs text-slate-500 truncate ml-3' title={req.dropoffAddress}>{req.dropoffAddress}</span> {/* 顯示詳細地址 */}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Vendor/Price Column */}
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-slate-900">{req.vendor || '-'}</div>
+                            <div className="text-xs text-slate-500 mt-1">
+                                {req.price ? 
+                                    <span className="font-semibold text-green-700">報價: ${Number(req.price).toLocaleString()}</span> 
+                                    : '未報價'
+                                }
+                            </div>
+                          </td>
+                          {/* End Vendor/Price Column */}
+
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            {/* 新增: 修改按鈕 */}
+                            <button 
+                                onClick={() => handleEdit(req)}
+                                className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition mr-1"
+                                title="修改派車單"
+                            >
+                                <SquarePen className="w-4 h-4" />
+                            </button>
+                            {/* 修改: 點擊下載/列印按鈕 */}
+                             <button 
+                                onClick={() => handleDownloadClick(req)}
+                                className="p-2 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-lg transition mr-1"
+                                title="下載派車單 (HTML)"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            {/* 刪除按鈕 (觸發確認視窗) */}
+                            <button 
+                              onClick={() => handleDelete(req.id, req.projectCode)}
+                              className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition"
+                              title="刪除"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <DispatchForm 
+            onCancel={handleCancel} // 使用新的 handleCancel
+            onSubmit={handleCreate} 
+            onUpdate={handleUpdate} // 傳遞新的更新處理函數
+            initialData={editingRequest} // 傳遞要編輯的資料
+          />
+        )}
+      </main>
+
+      {/* 刪除確認視窗 Modal */}
+      {deleteCandidate && (
+        <DeleteConfirmationModal 
+          candidate={deleteCandidate} 
+          onCancel={() => setDeleteCandidate(null)} 
+          onConfirm={executeDelete}
+        />
+      )}
+      
+      {/* 派車單下載視窗 Modal - 用於預覽和觸發下載 */}
+      {downloadCandidate && (
+        <DispatchOrderDownloadModal 
+          request={downloadCandidate} 
+          onClose={() => setDownloadCandidate(null)} 
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Sub Components ---
+
+function StatCard({ title, value, icon, bg, color = "text-slate-900" }) {
+  return (
+    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
+        <h3 className={`text-2xl font-bold ${color}`}>{value}</h3>
+      </div>
+      <div className={`p-3 rounded-xl ${bg}`}>
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+// StatusBadge removed as it's no longer needed
+
+// Vehicle Categories list
+const VEHICLE_CATEGORIES = ['回頭車', '貨車', '吊卡', '吊車', '板車'];
+
+// Special Needs List
+const SPECIAL_NEEDS = ['需車尾門', '需油壓板車', '需手拉吊車', '需吊籃'];
+
+// DispatchForm 調整為接受 onUpdate 和 initialData
+function DispatchForm({ onCancel, onSubmit, onUpdate, initialData }) {
+    const today = new Date().toISOString().split('T')[0];
+    const defaultTime = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }).substring(0, 5);
+
+    // 根據是否有 initialData 來初始化表單狀態
+    const [formData, setFormData] = useState(() => {
+        if (initialData) {
+            // 確保 scheduleTimes 是陣列且有資料，否則使用預設值
+            const scheduleTimes = initialData.scheduleTimes && initialData.scheduleTimes.length > 0 
+                ? initialData.scheduleTimes 
+                : [{ date: today, time: defaultTime }];
+            
+            // 確保 shippedItems 是陣列且有資料，否則使用預設值
+            const shippedItems = initialData.shippedItems && initialData.shippedItems.length > 0 
+                ? initialData.shippedItems 
+                : [{ name: '', quantity: 1, unit: '箱' }];
+
+            return {
+                ...initialData,
+                scheduleTimes,
+                shippedItems,
+            };
+        }
+        
+        // 預設狀態 (用於新增)
+        return {
+            scheduleTimes: [{ 
+                date: today, 
+                time: defaultTime 
+            }],
+            department: '廠務部',
+            applicant: '',
+            
+            projectCode: '', 
+            // Simplified contact info (merged fields)
+            contactPerson: '', // 業主/現場聯絡人
+            contactPhone: '',  // 業主/現場聯絡電話
+            
+            vehicleCategory: '貨車',
+            vehicleType: '', 
+            vehicleCount: 1,
+            pickupLoc: '公司',
+            dropoffName: '',
+            dropoffAddress: '',
+            needs: [],
+            
+            vendor: '', 
+            price: '',  
+
+            notes: '', 
+            
+            cargoL: '', cargoW: '', cargoH: '', cargoWeight: '',
+            
+            shippedItems: [{ name: '', quantity: 1, unit: '箱' }]
+        };
+    });
+
+    const toggleNeed = (need) => {
+        setFormData(prev => {
+            const exists = prev.needs.includes(need);
+            return {
+                ...prev,
+                needs: exists
+                    ? prev.needs.filter(n => n !== need)
+                    : [...prev.needs, need]
+            };
+        });
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Handle changes to multiple schedule times
+    const handleScheduleChange = (index, field, value) => {
+        setFormData(prev => {
+            const newScheduleTimes = [...prev.scheduleTimes];
+            newScheduleTimes[index] = {
+                ...newScheduleTimes[index],
+                [field]: value
+            };
+            return { ...prev, scheduleTimes: newScheduleTimes };
+        });
+    };
+    
+    // --- Shipped Items Handlers ---
+    const handleItemChange = (index, field, value) => {
+        setFormData(prev => {
+            const newItems = [...prev.shippedItems];
+            newItems[index] = {
+                ...newItems[index],
+                [field]: value
+            };
+            return { ...prev, shippedItems: newItems };
+        });
+    };
+    
+    const handleAddItem = () => {
+        setFormData(prev => ({
+            ...prev,
+            shippedItems: [...prev.shippedItems, { name: '', quantity: 1, unit: '箱' }]
+        }));
+    };
+
+    const handleRemoveItem = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            shippedItems: prev.shippedItems.filter((_, i) => i !== index)
+        }));
+    };
+    // --- End Shipped Items Handlers ---
+
+
+    // Add a new time slot
+    const handleAddTimeSlot = () => {
+        setFormData(prev => ({
+            ...prev,
+            scheduleTimes: [...prev.scheduleTimes, { 
+                date: today, 
+                time: '09:00' 
+            }]
+        }));
+    };
+
+    // Remove a time slot
+    const handleRemoveTimeSlot = (index) => {
+        if (formData.scheduleTimes.length > 1) {
+            setFormData(prev => ({
+                ...prev,
+                scheduleTimes: prev.scheduleTimes.filter((_, i) => i !== index)
+            }));
+        } else {
+            console.log("至少需要一個排程時間");
+        }
+    };
+    
+    // Form Submission
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (formData.scheduleTimes.length === 0) {
+            console.error("請至少指定一個排程時間");
+            return;
+        }
+        
+        // 判斷是新增還是修改
+        if (initialData) {
+            onUpdate(formData); // 呼叫更新
+        } else {
+            onSubmit(formData); // 呼叫新增
+        }
+    };
+    
+    // 判斷是否為修改模式，以變更標題與按鈕文字
+    const isEditing = !!initialData;
+    const formTitle = isEditing ? `修改派車申請單 #${initialData.projectCode}` : '新增派車申請';
+    const submitButtonText = isEditing ? '儲存修改' : '確認送出';
+
+
+    return (
+        <div className="max-w-3xl mx-auto">
+            {/* Form Header */}
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{formTitle}</h2>
+                    <p className="text-slate-500 text-sm mt-1">
+                         {isEditing ? '請修改下方資訊並儲存' : '填寫下方資訊，系統將自動通知調度人員'}
+                    </p>
+                </div>
+                <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition">
+                    <X className="w-6 h-6 text-slate-500" />
+                </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="p-6 md:p-8 space-y-8">
+
+                    {/* Section 1: Scheduling Time */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <Calendar className="w-4 h-4 text-blue-600" /> 排程/配合時間 <span className="text-red-500">* (可多個)</span>
+                        </h3>
+                        <div className="space-y-3">
+                            {formData.scheduleTimes.map((sch, index) => (
+                                <div key={index} className="flex items-center gap-3">
+                                    <input 
+                                        required 
+                                        type="date" 
+                                        value={sch.date} 
+                                        onChange={(e) => handleScheduleChange(index, 'date', e.target.value)} 
+                                        className="w-1/2 rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                    />
+                                    <input 
+                                        required 
+                                        type="time" 
+                                        value={sch.time} 
+                                        onChange={(e) => handleScheduleChange(index, 'time', e.target.value)} 
+                                        className="w-1/3 rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveTimeSlot(index)} 
+                                        disabled={formData.scheduleTimes.length === 1}
+                                        className={`w-1/6 p-2 rounded-lg transition ${formData.scheduleTimes.length === 1 ? 'text-slate-400 cursor-not-allowed' : 'text-red-600 hover:bg-red-100'}`}
+                                        title="移除此時段"
+                                    >
+                                        <Trash2 className="w-5 h-5 mx-auto" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleAddTimeSlot}
+                            className="w-full mt-2 flex items-center justify-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 py-2 rounded-lg transition text-sm font-medium"
+                        >
+                            <Plus className="w-4 h-4" />
+                            新增配合時段
+                        </button>
+                    </section>
+                    
+                    {/* Section 2: Applicant Info */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <User className="w-4 h-4 text-blue-600" /> 申請人資訊
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">申請部門</label>
+                                <select name="department" value={formData.department} onChange={handleChange} className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition">
+                                    <option>廠務部</option>
+                                    <option>工務部</option>
+                                    <option>業務部</option>
+                                    <option>管理部</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">申請人 <span className="text-red-500">*</span></label>
+                                <input required type="text" name="applicant" value={formData.applicant} onChange={handleChange} placeholder="請輸入姓名" className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" />
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 3: Project/Client Info - SIMPLIFIED */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <FileText className="w-4 h-4 text-blue-600" /> 專案/業主資訊
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">工案代號 <span className="text-red-500">*</span></label>
+                                <input 
+                                    required 
+                                    type="text" 
+                                    name="projectCode" 
+                                    value={formData.projectCode} 
+                                    onChange={handleChange} 
+                                    placeholder="請輸入工案代號" 
+                                    className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                />
+                            </div>
+                            {/* 合併後的欄位 */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">業主/現場聯絡人</label>
+                                <input 
+                                    type="text" 
+                                    name="contactPerson" 
+                                    value={formData.contactPerson} 
+                                    onChange={handleChange} 
+                                    placeholder="聯絡人姓名" 
+                                    className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">業主/現場聯絡電話</label>
+                                <input 
+                                    type="tel" 
+                                    name="contactPhone" 
+                                    value={formData.contactPhone} 
+                                    onChange={handleChange} 
+                                    placeholder="聯絡電話" 
+                                    className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+
+                    {/* Section 4: Vehicle & Needs */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <Truck className="w-4 h-4 text-blue-600" /> 車輛與特殊需求
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">車輛類別 (車種)</label>
+                                <select name="vehicleCategory" value={formData.vehicleCategory} onChange={handleChange} className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition">
+                                    {VEHICLE_CATEGORIES.map(category => (
+                                        <option key={category} value={category}>{category}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">車輛規格 (選填)</label> 
+                                <input
+                                    type="text"
+                                    name="vehicleType"
+                                    value={formData.vehicleType}
+                                    onChange={handleChange}
+                                    placeholder="例: 10.5噸/全吊/低板"
+                                    className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">數量</label>
+                                <input type="number" min="1" name="vehicleCount" value={formData.vehicleCount} onChange={handleChange} className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" />
+                            </div>
+                        </div>
+
+                        {/* Special Needs Selection */}
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center gap-1">
+                                <ListChecks className='w-4 h-4 text-purple-600' /> 特殊輔助設備 (可複選)
+                            </label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {SPECIAL_NEEDS.map((item) => (
+                                    <div
+                                        key={item}
+                                        onClick={() => toggleNeed(item)}
+                                        className={`cursor-pointer flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                                            formData.needs.includes(item)
+                                                ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                                                : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400'
+                                            }`}
+                                    >
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${formData.needs.includes(item) ? 'bg-white border-white' : 'border-slate-300'}`}>
+                                            {formData.needs.includes(item) && <CheckSquare className="w-3 h-3 text-blue-600 fill-current" />}
+                                        </div>
+                                        <span className="text-sm font-medium">{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 5: Locations (Updated) */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <MapPin className="w-4 h-4 text-blue-600" /> 路線行程與地點
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                            <div className="hidden md:block absolute left-1/2 top-8 -translate-x-1/2 z-10 bg-slate-100 p-1 rounded-full">
+                                <ArrowRight className="w-4 h-4 text-slate-400" />
+                            </div>
+                            <div className="bg-green-50/50 p-4 rounded-lg border border-green-100">
+                                <label className="block text-xs font-bold text-green-700 uppercase mb-2">上貨地點 (From)</label>
+                                <input type="text" name="pickupLoc" value={formData.pickupLoc} onChange={handleChange} className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition" placeholder="例如: 公司" />
+                            </div>
+                            <div className="bg-red-50/50 p-4 rounded-lg border border-red-100">
+                                <label className="block text-xs font-bold text-red-700 uppercase mb-2">下貨地點名稱 (To Name)</label>
+                                <input required type="text" name="dropoffName" value={formData.dropoffName} onChange={handleChange} className="w-full rounded-md border-slate-300 border px-3 py-2 text-slate-900 bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition" placeholder="例如: 台積電F18工地" />
+                            </div>
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-slate-700 mb-1 mt-4">詳細下貨地址 <span className="text-red-500">*</span></label>
+                            <textarea
+                                required
+                                name="dropoffAddress"
+                                rows="2"
+                                value={formData.dropoffAddress}
+                                onChange={handleChange}
+                                placeholder="請輸入完整的收貨地址，例如: 台北市南港區忠孝東路七段 100 號 3 樓"
+                                className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition text-sm"
+                            ></textarea>
+                        </div>
+                    </section>
+
+
+                    {/* Section 6: Cargo Details */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <Package className="w-4 h-4 text-blue-600" /> 貨物總尺寸 (選填)
+                        </h3>
+                        <div className="grid grid-cols-4 gap-3">
+                            <input type="text" name="cargoL" placeholder="長 (L) [cm]" value={formData.cargoL} onChange={handleChange} className="col-span-1 rounded-lg border-slate-300 border px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                            <input type="text" name="cargoW" placeholder="寬 (W) [cm]" value={formData.cargoW} onChange={handleChange} className="col-span-1 rounded-lg border-slate-300 border px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                            <input type="text" name="cargoH" placeholder="高 (H) [cm]" value={formData.cargoH} onChange={handleChange} className="col-span-1 rounded-lg border-slate-300 border px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                            <input type="text" name="cargoWeight" placeholder="重量 (kg)" value={formData.cargoWeight} onChange={handleChange} className="col-span-1 rounded-lg border-slate-300 border px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                        </div>
+                    </section>
+                    
+                    {/* Section 7: Shipped Items (New Section) */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <List className="w-4 h-4 text-blue-600" /> 出貨品項清單 <span className="text-red-500">* (請至少填寫一項)</span>
+                        </h3>
+                        <div className="space-y-3">
+                            {formData.shippedItems.map((item, index) => (
+                                <div key={index} className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                    <input 
+                                        required
+                                        type="text" 
+                                        value={item.name} 
+                                        onChange={(e) => handleItemChange(index, 'name', e.target.value)} 
+                                        placeholder="品項名稱/型號" 
+                                        className="flex-grow rounded-lg border-slate-300 border px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                    />
+                                    <input 
+                                        required
+                                        type="number" 
+                                        min="1"
+                                        value={item.quantity} 
+                                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)} 
+                                        placeholder="數量" 
+                                        className="w-20 rounded-lg border-slate-300 border px-3 py-2 text-sm text-center focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                    />
+                                     <input 
+                                        required
+                                        type="text" 
+                                        value={item.unit} 
+                                        onChange={(e) => handleItemChange(index, 'unit', e.target.value)} 
+                                        placeholder="單位" 
+                                        className="w-16 rounded-lg border-slate-300 border px-3 py-2 text-sm text-center focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveItem(index)} 
+                                        disabled={formData.shippedItems.length === 1}
+                                        className={`p-2 rounded-lg transition ${formData.shippedItems.length === 1 ? 'text-slate-400 cursor-not-allowed' : 'text-red-600 hover:bg-red-100'}`}
+                                        title="移除此品項"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleAddItem}
+                            className="w-full mt-2 flex items-center justify-center gap-2 border border-blue-200 text-blue-600 hover:bg-blue-50 py-2 rounded-lg transition text-sm font-medium"
+                        >
+                            <Plus className="w-4 h-4" />
+                            新增品項
+                        </button>
+                    </section>
+
+
+                    {/* Section 8: Vendor and Cost (調度員專用) */}
+                    <section className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <Tag className="w-4 h-4 text-blue-600" /> 廠商與報價 (調度員專用)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">承接廠商</label>
+                                <input 
+                                    type="text" 
+                                    name="vendor" 
+                                    value={formData.vendor} 
+                                    onChange={handleChange} 
+                                    placeholder="例如: 順風交通有限公司" 
+                                    className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">報價金額 (NT$)</label> 
+                                <input 
+                                    type="number" 
+                                    name="price" 
+                                    value={formData.price} 
+                                    onChange={handleChange} 
+                                    placeholder="請輸入金額 (純數字)" 
+                                    min="0"
+                                    className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition" 
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 9: Notes */}
+                    <section className="space-y-4">
+                        <label className="block text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                            <FileText className="w-4 h-4 text-blue-600" /> 備註事項
+                        </label>
+                        <textarea 
+                            name="notes" 
+                            rows="4" 
+                            placeholder="備註事項 (例如: 需待機、現場無堆高機...)" 
+                            value={formData.notes} 
+                            onChange={handleChange} 
+                            className="w-full rounded-lg border-slate-300 border px-3 py-2 text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition text-sm"
+                        ></textarea>
+                    </section>
+
+                </div>
+
+                {/* Footer Actions */}
+                <div className="bg-slate-50 px-6 py-4 flex items-center justify-end gap-3 border-t border-slate-200">
+                    <button type="button" onClick={onCancel} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition">取消</button>
+                    <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-sm active:scale-95 transition flex items-center gap-2">
+                        <CheckSquare className="w-4 h-4" />
+                        {submitButtonText}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+/**
+ * 刪除確認視窗組件
+ */
+function DeleteConfirmationModal({ candidate, onCancel, onConfirm }) {
+    return (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-6">
+                <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                        <AlertCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900">確認刪除派車單?</h3>
+                    <p className="text-sm text-slate-500 mt-2">
+                        您即將刪除工案代號為 
+                        <span className="font-bold text-red-600 mx-1">{candidate.projectCode || 'N/A'}</span> 
+                        的派車紀錄。此動作無法復原。
+                    </p>
+                </div>
+                
+                <div className="flex justify-end gap-3">
+                    <button 
+                        onClick={onCancel} 
+                        className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                    >
+                        取消
+                    </button>
+                    <button 
+                        onClick={onConfirm} 
+                        className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-md active:scale-95"
+                    >
+                        確認刪除
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * 派車單下載預覽及執行下載的元件
+ */
+function DispatchOrderDownloadModal({ request, onClose }) {
+  
+  // 格式化數據
+  const scheduleInfo = request.scheduleTimes?.map(s => `${s.date} @ ${s.time}`).join(' / ') || '無排程時間';
+  const cargoDetails = [
+    request.cargoL && `長: ${request.cargoL}`,
+    request.cargoW && `寬: ${request.cargoW}`,
+    request.cargoH && `高: ${request.cargoH}`,
+    request.cargoWeight && `重: ${request.cargoWeight} kg`
+  ].filter(Boolean).join(' | ') || '無詳細貨物資訊';
+  const specialNeeds = request.needs && request.needs.length > 0 ? request.needs.join(', ') : '無特殊需求';
+  const priceDisplay = request.price ? `NT$ ${Number(request.price).toLocaleString()}` : '待報價';
+  const createdAtDisplay = request.createdAt ? new Date(request.createdAt.seconds * 1000).toLocaleDateString('zh-TW') : 'N/A';
+  
+  const shippedItems = request.shippedItems || [];
+  
+  /**
+   * 輔助函數：生成品項表格的 HTML 字符串
+   */
+  const generateItemsTableHtml = (items) => {
+    if (!items || items.length === 0) return '<p>無品項資訊</p>';
+    
+    const rows = items.map((item, index) => `
+        <tr>
+            <td style="border: 1px solid #ccc; padding: 4px; text-align: center;">${index + 1}</td>
+            <td style="border: 1px solid #ccc; padding: 4px;">${item.name || '-'}</td>
+            <td style="border: 1px solid #ccc; padding: 4px; text-align: center;">${item.quantity || 0}</td>
+            <td style="border: 1px solid #ccc; padding: 4px; text-align: center;">${item.unit || '-'}</td>
+        </tr>
+    `).join('');
+    
+    return `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px;">
+            <thead>
+                <tr style="background-color: #f0f4ff;">
+                    <th style="border: 1px solid #ccc; padding: 4px; width: 10%;">序號</th>
+                    <th style="border: 1px solid #ccc; padding: 4px; width: 50%;">品項名稱/型號</th>
+                    <th style="border: 1px solid #ccc; padding: 4px; width: 20%;">數量</th>
+                    <th style="border: 1px solid #ccc; padding: 4px; width: 20%;">單位</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+  };
+
+
+  /**
+   * 內部函數：產生包含所有樣式的完整 HTML 內容 (優化列印版面 - 單頁)
+   */
+  const generatePrintableHtml = (req) => {
+    const itemsTableHtml = generateItemsTableHtml(req.shippedItems);
+
+    // CSS 設定：強制 A4 尺寸，縮小字體與邊距，隱藏不必要的元素
+    const printStyles = `
+        @media print {
+            @page { size: A4; margin: 0.5cm; }
+            body { margin: 0; padding: 0; font-size: 12pt; font-family: 'Inter', Arial, sans-serif; background-color: white !important; }
+            .dispatch-form { 
+                box-shadow: none !important; 
+                border: none !important; 
+                width: 100%; 
+                max-width: 100%; 
+                padding: 0 !important;
+            }
+            h1 { font-size: 26px; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 2px solid #1e40af; text-align: center; color: #1e40af; }
+            h2 { 
+                font-size: 16px; 
+                margin-top: 8px; 
+                margin-bottom: 4px; 
+                padding: 3px 5px; 
+                background-color: #f3f4f6 !important; 
+                -webkit-print-color-adjust: exact; 
+                border-bottom: 1px solid #ccc; 
+                color: #333;
+                font-weight: bold;
+            }
+            .section-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 5px; }
+            .section-grid-3 { grid-template-columns: repeat(3, 1fr); }
+            /* Changed to 2 columns grid for Vendor/Price after removal of Driver */
+            .section-grid-2 { grid-template-columns: repeat(2, 1fr); }
+            
+            .field-label { font-weight: bold; color: #555; font-size: 12px; display: block; margin-bottom: 1px; text-transform: uppercase; }
+            .field-value { font-size: 14px; color: #000; padding: 1px 0; border-bottom: 1px dotted #999; display: block; min-height: 18px; line-height: 1.3;}
+            
+            /* 簽名區塊 */
+            .signature-container {
+                display: grid; 
+                grid-template-columns: repeat(5, 1fr); 
+                gap: 15px; 
+                margin-top: 15px; 
+                border-top: 1px dashed #000; 
+                padding-top: 10px;
+                page-break-inside: avoid;
+            }
+            .signature-box { text-align: center; }
+            .signature-line { border-top: 1px solid #000; margin-top: 40px; font-size: 12px; color: #000; }
+            
+            .full-width { grid-column: 1 / -1; }
+            
+            /* 表格樣式微調 */
+            table { font-size: 12px; width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #000; padding: 4px; }
+            th { background-color: #eee !important; -webkit-print-color-adjust: exact; }
+        }
+        /* 螢幕顯示樣式 (保持原樣，方便預覽) */
+        body { font-family: 'Inter', Arial, sans-serif; line-height: 1.4; margin: 0; padding: 20px; background-color: #f7f7f7; }
+        .dispatch-form { max-width: 800px; margin: 0 auto; background-color: #fff; padding: 30px; border: 1px solid #ccc; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        /* ... 其他螢幕樣式略，重點是 print 區塊 ... */
+    `;
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="zh-TW">
+    <head>
+        <meta charset="UTF-8">
+        <title>派車單 - ${req.projectCode}</title>
+        <style>${printStyles}</style>
+    </head>
+    <body>
+        <div class="dispatch-form">
+            <h1>派車申請單 <span style="font-size: 16px; font-weight: normal; color: #555; display: block; margin-top: 2px;">(工案代號: ${req.projectCode})</span></h1>
+            
+            <h2>基本資訊</h2>
+            <div class="section-grid">
+                <div><span class="field-label">填單日期</span><span class="field-value">${createdAtDisplay}</span></div>
+                <div><span class="field-label">申請人 / 部門</span><span class="field-value">${req.applicant} / ${req.department}</span></div>
+                <div class="full-width"><span class="field-label">工案代號</span><span class="field-value">${req.projectCode}</span></div>
+            </div>
+
+            <h2>行程與地點</h2>
+            <div class="section-grid">
+                <div class="full-width"><span class="field-label">預計配合時間</span><span class="field-value">${scheduleInfo}</span></div>
+                <div><span class="field-label">上貨地點 (From)</span><span class="field-value">${req.pickupLoc}</span></div>
+                <div><span class="field-label">下貨地點名稱 (To Name)</span><span class="field-value">${req.dropoffName}</span></div>
+                <div class="full-width"><span class="field-label">詳細下貨地址</span><span class="field-value">${req.dropoffAddress || '-'}</span></div>
+            </div>
+            
+            <h2>出貨品項清單</h2>
+            <div class="full-width">
+                ${itemsTableHtml}
+            </div>
+
+            <h2>車輛與貨物需求</h2>
+            <div class="section-grid section-grid-3">
+                <div><span class="field-label">車輛類別</span><span class="field-value">${req.vehicleCategory}</span></div>
+                <div><span class="field-label">車輛規格</span><span class="field-value">${req.vehicleType || '-'}</span></div>
+                <div><span class="field-label">數量</span><span class="field-value">${req.vehicleCount} 輛</span></div>
+                <div class="full-width"><span class="field-label">特殊需求</span><span class="field-value">${specialNeeds}</span></div>
+                <div class="full-width"><span class="field-label">貨物總尺寸/重量</span><span class="field-value">${cargoDetails}</span></div>
+            </div>
+            
+            <h2>專案聯絡人</h2>
+            <div class="section-grid">
+                <div><span class="field-label">業主/現場聯絡人</span><span class="field-value">${req.contactPerson || '-'}</span></div>
+                <div><span class="field-label">業主/現場聯絡電話</span><span class="field-value">${req.contactPhone || '-'}</span></div>
+            </div>
+
+            <h2 style="background-color: #f0f4ff !important; -webkit-print-color-adjust: exact;">調度員指派與報價</h2>
+            <div class="section-grid section-grid-2">
+                <div><span class="field-label">指派廠商</span><span class="field-value">${req.vendor || '待調度'}</span></div>
+                <div><span class="field-label">報價金額</span><span class="field-value">${priceDisplay}</span></div>
+            </div>
+
+            <h2>備註事項</h2>
+            <div class="section-grid">
+                <div class="full-width"><span class="field-value" style="min-height: 40px; white-space: pre-wrap;">${req.notes || '無'}</span></div>
+            </div>
+            
+            <div class="signature-container">
+                <div class="signature-box"><div class="signature-line">申請人簽名</div></div>
+                <div class="signature-box"><div class="signature-line">部門主管簽核</div></div>
+                <div class="signature-box"><div class="signature-line">車輛出貨完畢</div></div>
+                <div class="signature-box"><div class="signature-line">採購簽核</div></div>
+                <div class="signature-box"><div class="signature-line">會計資料收齊確認</div></div>
+            </div>
+
+            <p style="text-align: center; font-size: 9px; color: #666; margin-top: 10px;">本單為內部紀錄，請依照公司流程處理。</p>
+
+        </div>
+    </body>
+    </html>
+    `;
+    return htmlContent;
+  };
+
+  /**
+   * 處理 HTML 檔案下載
+   */
+  const handleDownload = () => {
+    const htmlContent = generatePrintableHtml(request);
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    const filename = `派車單_${request.projectCode || 'N_A'}_${new Date().toISOString().substring(0, 10)}.html`;
+    link.download = filename;
+    link.href = url;
+
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log(`已觸發 HTML 檔案下載: ${filename}`);
+    
+    onClose();
+  };
+  
+  // Helper component to display the shipped items list in the React preview
+  const ShippedItemsTable = ({ items }) => {
+      if (!items || items.length === 0) {
+          return <p className="text-sm text-gray-500 italic p-4">無品項資訊</p>;
+      }
+      return (
+          <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-300">
+                  <thead className="bg-gray-200">
+                      <tr>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider w-1/12">#</th>
+                          <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider w-7/12">品項名稱/型號</th>
+                          <th scope="col" className="px-3 py-2 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-2/12">數量</th>
+                          <th scope="col" className="px-3 py-2 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-2/12">單位</th>
+                      </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                      {items.map((item, index) => (
+                          <tr key={index}>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">{index + 1}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{item.name || '-'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 text-center">{item.quantity || 0}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 text-center">{item.unit || '-'}</td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
+      );
+  };
+
+
+  return (
+    // 使用 fixed 覆蓋整個畫面進行預覽
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 overflow-auto flex justify-center items-start pt-10 pb-10">
+      
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl">
+        
+        {/* 下載控制區塊 */}
+        <div className="no-print sticky top-0 bg-white p-4 shadow-md flex justify-between items-center rounded-t-xl z-10 border-b border-slate-200">
+          <h2 className="text-xl font-bold text-slate-800">下載預覽：工案 #{request.projectCode}</h2>
+          <div className="flex gap-3">
+            <button 
+              onClick={onClose} 
+              className="p-2.5 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-200 border border-slate-300 rounded-lg transition flex items-center gap-1 font-medium"
+            >
+              <X className="w-5 h-5" /> 關閉
+            </button>
+            <button 
+              onClick={handleDownload} 
+              style={{ backgroundColor: PRIMARY_BLUE }}
+              className="hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition flex items-center gap-2 active:scale-95"
+            >
+              <Download className="w-5 h-5" />
+              下載派車單 (HTML)
+            </button>
+          </div>
+        </div>
+        
+        {/* 預覽區域 - 顯示派車單內容 (React Component for preview) */}
+        <div className="p-6 md:p-10 max-h-[80vh] overflow-y-auto">
+          <div className="space-y-6 text-gray-700">
+              
+              <h1 className="text-3xl font-extrabold text-center text-gray-800 mb-8 border-b-4 border-blue-600 pb-3">
+                  派車申請單
+                  <div className='text-base font-semibold text-gray-500 mt-1'>(工案代號: {request.projectCode})</div>
+              </h1>
+
+              {/* 申請基本資訊 */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden">
+                  <h3 className="bg-gray-100 p-3 font-bold text-lg border-b border-gray-300">基本資訊</h3>
+                  <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+                      <Field label="填單日期" value={createdAtDisplay} />
+                      <Field label="申請人 / 部門" value={`${request.applicant} / ${request.department}`} />
+                      <Field label="工案代號" value={request.projectCode} />
+                  </div>
+              </section>
+
+              {/* 用車細節 - 時間/地點 */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden">
+                  <h3 className="bg-gray-100 p-3 font-bold text-lg border-b border-gray-300">行程與地點</h3>
+                  <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+                      <Field label="預計配合時間" value={scheduleInfo} colSpan={2} />
+                      <Field label="上貨地點 (From)" value={request.pickupLoc} />
+                      <Field label="下貨地點名稱 (To Name)" value={request.dropoffName} />
+                      <Field label="詳細下貨地址" value={request.dropoffAddress} colSpan={2} />
+                  </div>
+              </section>
+
+              {/* 出貨品項清單 (New) */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden">
+                  <h3 className="bg-gray-100 p-3 font-bold text-lg border-b border-gray-300 flex items-center gap-2">
+                     <ListChecks className='w-5 h-5'/> 出貨品項清單
+                  </h3>
+                  <div className="p-4">
+                      <ShippedItemsTable items={shippedItems} />
+                  </div>
+              </section>
+              
+              {/* 車輛資訊/貨物/備註 */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden">
+                  <h3 className="bg-gray-100 p-3 font-bold text-lg border-b border-gray-300">車輛與貨物需求</h3>
+                  <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-3 gap-6">
+                           <Field label="車輛類別" value={request.vehicleCategory} />
+                           <Field label="車輛規格" value={request.vehicleType || '-'} />
+                           <Field label="數量" value={`${request.vehicleCount} 輛`} />
+                      </div>
+                      <Field label="貨物總尺寸/重量" value={cargoDetails} colSpan={3} />
+                      <Field label="特殊需求" value={specialNeeds} colSpan={3} />
+                  </div>
+              </section>
+              
+              {/* 專案/聯絡資訊 - Simplified */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden">
+                  <h3 className="bg-gray-100 p-3 font-bold text-lg border-b border-gray-300">專案聯絡人</h3>
+                  <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+                      <Field label="業主/現場聯絡人" value={request.contactPerson || '-'} />
+                      <Field label="業主/現場聯絡電話" value={request.contactPhone || '-'} />
+                  </div>
+              </section>
+
+              {/* 派車安排 (簽核專用) */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden mt-6">
+                  <h3 style={{ backgroundColor: PRIMARY_BLUE }} className="text-white p-3 font-bold text-lg border-b border-gray-300">調度與簽核</h3>
+                  <div className="p-4 grid grid-cols-3 gap-6">
+                      <Field label="指派廠商" value={request.vendor || '待調度'} />
+                      <Field label="報價金額" value={priceDisplay} />
+                      {/* Removed Driver/Plate Field for Print Preview as well to match */}
+                  </div>
+                  
+                  {/* 簽核區 - 5 欄位 (預覽顯示) */}
+                  <div className="p-4 pt-6 grid grid-cols-5 gap-4 text-center text-sm font-medium border-t border-gray-300">
+                      <SignatureBox label="申請人簽名" />
+                      <SignatureBox label="部門主管簽核" />
+                      <SignatureBox label="車輛出貨完畢" /> 
+                      <SignatureBox label="採購簽核" /> 
+                      <SignatureBox label="會計資料收齊確認" /> 
+                  </div>
+              </section>
+              
+              {/* 備註 */}
+              <section className="border border-gray-300 rounded-lg overflow-hidden">
+                   <h3 className="bg-gray-100 p-3 font-bold text-lg border-b border-gray-300">備註事項</h3>
+                   <p className="p-4 text-sm text-gray-800 whitespace-pre-wrap">{request.notes || '無'}</p>
+              </section>
+              
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper component for form fields in print view
+function Field({ label, value, colSpan = 1 }) {
+    const colClass = colSpan === 2 ? 'col-span-2' : colSpan === 3 ? 'col-span-3' : 'col-span-1';
+    
+    return (
+        <div className={`${colClass} flex flex-col`}>
+            <span className="text-xs font-medium text-gray-500 uppercase">{label}</span>
+            <span className={`mt-1 font-semibold text-sm text-gray-800`}>
+                {value || '-'}
+            </span>
+        </div>
+    );
+}
+
+// Helper component for signature boxes
+function SignatureBox({ label }) {
+    return (
+        <div className="flex flex-col">
+            <p className="mb-2 text-sm text-gray-700">{label}</p>
+            <div className="border border-gray-400 h-16 rounded-lg bg-gray-50/50"></div>
+        </div>
+    );
+}
+// --- End of Sub Components ---
