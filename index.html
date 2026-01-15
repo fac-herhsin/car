@@ -3,220 +3,355 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>何鑫實業 - 派車管理系統</title>
+    <title>何鑫實業 - 派車管理系統 (GitHub 雲端版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js" type="module"></script>
+
     <style>
-        .hidden { display: none !important; }
-        .form-input { width: 100%; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 0.5rem; outline: none; transition: 0.2s; font-size: 0.9rem; }
-        .form-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-        .section-title { font-size: 0.9rem; font-weight: 700; color: #1e40af; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; }
-        .checkbox-card { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; cursor: pointer; transition: 0.2s; font-size: 0.85rem; background: #fff; }
-        .checkbox-card:hover { background-color: #f8fafc; }
-        .bg-pickup { background-color: #f0fdf4; border: 1px solid #dcfce7; }
-        .bg-dropoff { background-color: #fef2f2; border: 1px solid #fee2e2; }
+        .form-grid td { padding: 10px; border: 1px solid #cbd5e1; }
+        .label-bg { background-color: #f8fafc; font-weight: bold; width: 110px; font-size: 0.8rem; color: #475569; }
+        .sign-td { width: 20%; height: 90px; vertical-align: top; padding: 5px; border: 1px solid #cbd5e1; font-weight: bold; font-size: 0.75rem; }
+        @media print { .no-print { display: none !important; } }
+        
+        /* 刪除按鈕樣式 */
+        .btn-delete-row {
+            padding: 6px;
+            border-radius: 6px;
+            color: #94a3b8;
+            transition: all 0.2s;
+        }
+        .btn-delete-row:hover {
+            color: #ef4444;
+            background-color: #fee2e2;
+        }
     </style>
 </head>
-<body class="bg-[#f8fafc] min-h-screen text-slate-800">
+<body class="bg-slate-50 p-4 md:p-6 text-slate-900">
 
-    <header class="bg-white border-b sticky top-0 z-50">
-        <div class="max-w-5xl mx-auto px-4 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-2 cursor-pointer" onclick="showView('dashboard')">
-                <div class="bg-blue-600 p-2 rounded-lg text-white"><i data-lucide="truck" class="w-5 h-5"></i></div>
-                <h1 class="font-bold text-lg text-slate-900">何鑫實業</h1>
-            </div>
-            <button id="nav-btn" onclick="openForm()" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg hover:bg-blue-700 active:scale-95 transition">
-                <i data-lucide="plus" class="w-4 h-4"></i> 新增派車單
-            </button>
+    <!-- 列表頁面 -->
+    <div id="view-list" class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                <i data-lucide="truck" class="text-blue-600"></i> 何鑫實業 - 派車管理 (雲端同步)
+            </h1>
+            <div id="auth-status" class="text-xs text-slate-400 font-bold">系統連線中...</div>
+            <button id="btn-new-record" class="bg-blue-600 text-white px-6 py-2.5 rounded-lg shadow font-bold hover:bg-blue-700 transition">新增派車單</button>
         </div>
-    </header>
-
-    <main class="max-w-5xl mx-auto p-4 md:p-6">
         
-        <div id="view-dashboard" class="space-y-4">
-            <div id="list-container" class="grid gap-3"></div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b">
+                    <tr>
+                        <th class="p-4 text-xs font-bold text-slate-400">日期</th>
+                        <th class="p-4 text-xs font-bold text-slate-400">工案代號</th>
+                        <th class="p-4 text-xs font-bold text-slate-400">下貨點</th>
+                        <th class="p-4 text-xs font-bold text-slate-400">廠商</th>
+                        <th class="p-4 text-xs font-bold text-slate-400 text-right">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="main-tbody">
+                    <tr><td colspan="5" class="p-10 text-center text-slate-300 font-bold">正在從雲端載入資料...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 表單頁面 -->
+    <div id="view-form" class="max-w-5xl mx-auto hidden">
+        <div class="flex justify-between items-center mb-6 no-print">
+            <button id="btn-back-to-list" class="text-slate-500 font-bold hover:text-blue-600">← 返回列表</button>
+            <div class="flex gap-4">
+                <button id="btn-print" class="bg-white border border-slate-300 px-6 py-2 rounded-lg font-bold shadow-sm">列印單據</button>
+                <button id="btn-save" class="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold shadow-lg hover:bg-blue-700">儲存並同步</button>
+            </div>
         </div>
 
-        <div id="view-form" class="hidden">
-            <form id="dispatchForm" class="bg-white rounded-2xl shadow-sm border p-6 md:p-10 space-y-10">
-                <input type="hidden" id="edit-index" value="-1">
+        <form id="dispatchForm" class="bg-white p-10 rounded-xl shadow-lg border border-slate-300">
+            <input type="hidden" id="edit-id" value="">
+            <div class="text-center mb-8 border-b-4 border-double border-black pb-4">
+                <h2 class="text-2xl font-black tracking-widest">何 鑫 實 業 派 車 申 請 單</h2>
+            </div>
+            <table class="w-full form-grid border-collapse mb-6 text-sm">
+                <tr>
+                    <td class="label-bg">工案代號</td>
+                    <td><input type="text" id="f-projectCode" class="w-full outline-none font-black text-blue-700"></td>
+                    <td class="label-bg">申請人</td>
+                    <td><input type="text" id="f-applicant" class="w-full outline-none font-bold"></td>
+                </tr>
+                <tr>
+                    <td class="label-bg">派車日期</td>
+                    <td><input type="date" id="f-date" class="w-full outline-none font-bold"></td>
+                    <td class="label-bg">配合時間</td>
+                    <td><input type="time" id="f-time" class="w-full outline-none font-bold"></td>
+                </tr>
+                <tr>
+                    <td class="label-bg">配合廠商</td>
+                    <td><input type="text" id="f-vendor" class="w-full outline-none font-black text-amber-700"></td>
+                    <td class="label-bg">報價金額</td>
+                    <td><input type="number" id="f-price" class="w-full outline-none font-bold"></td>
+                </tr>
+                <tr>
+                    <td class="label-bg">車種需求</td>
+                    <td>
+                        <select id="f-carType" class="bg-transparent border-b outline-none font-bold">
+                            <option value="貨車">貨車</option><option value="吊卡">吊卡</option><option value="吊車">吊車</option><option value="板車">板車</option><option value="回頭車">回頭車</option>
+                        </select>
+                        <input type="number" id="f-carCount" value="1" class="w-10 text-center border-b outline-none"> 台
+                    </td>
+                    <td class="label-bg">規格尺寸</td>
+                    <td><input type="text" id="f-carSize" class="w-full outline-none font-bold"></td>
+                </tr>
+                <tr>
+                    <td class="label-bg">聯絡人</td>
+                    <td><input type="text" id="f-contactPerson" class="w-full outline-none font-bold"></td>
+                    <td class="label-bg">聯絡電話</td>
+                    <td><input type="text" id="f-contactPhone" class="w-full outline-none font-bold"></td>
+                </tr>
+                <tr>
+                    <td class="label-bg">起點</td>
+                    <td><input type="text" id="f-pickup" value="公司" class="w-full outline-none font-bold"></td>
+                    <td class="label-bg">下貨名稱</td>
+                    <td><input type="text" id="f-destination" class="w-full outline-none font-black"></td>
+                </tr>
+                <tr>
+                    <td class="label-bg">下貨地址</td>
+                    <td colspan="3"><input type="text" id="f-destAddr" class="w-full outline-none font-bold"></td>
+                </tr>
+            </table>
 
-                <section>
-                    <div class="section-title"><i data-lucide="calendar"></i> 排程/配合時間 <span class="text-red-500 font-normal">*(可多個)</span></div>
-                    <div id="schedule-box" class="space-y-3"></div>
-                    <button type="button" onclick="addScheduleRow()" class="w-full mt-4 py-2 border border-blue-200 border-dashed rounded-xl text-blue-600 text-sm font-bold hover:bg-blue-50 transition flex justify-center items-center gap-2">
-                        <i data-lucide="plus" class="w-4 h-4"></i> 新增配合時段
-                    </button>
-                </section>
+            <div class="mb-6">
+                <div class="bg-slate-100 px-4 py-1 font-bold text-xs border border-b-0 text-slate-500">品項明細</div>
+                <div id="item-container" class="border p-4 border-slate-300 rounded-b"></div>
+                <button type="button" id="btn-add-item" class="mt-2 text-blue-600 text-xs font-bold no-print">+ 新增品項</button>
+            </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <section>
-                        <div class="section-title"><i data-lucide="user"></i> 申請人資訊</div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-xs text-slate-500 mb-1 block">申請部門</label>
-                                <select name="department" class="form-input"><option>廠務部</option><option>工務部</option></select></div>
-                            <div><label class="text-xs text-slate-500 mb-1 block">申請人 *</label>
-                                <input type="text" name="applicant" required class="form-input" placeholder="請輸入姓名"></div>
-                        </div>
-                    </section>
-                    <section>
-                        <div class="section-title"><i data-lucide="file-text"></i> 專案/業主資訊</div>
-                        <div class="space-y-4">
-                            <input type="text" name="projectCode" required class="form-input" placeholder="工案代號 *">
-                            <div class="grid grid-cols-2 gap-4">
-                                <input type="text" name="owner" class="form-input" placeholder="業主/現場聯絡人">
-                                <input type="text" name="phone" class="form-input" placeholder="聯絡電話">
-                            </div>
-                        </div>
-                    </section>
-                </div>
+            <div class="mb-8">
+                <div class="bg-slate-100 px-4 py-1 font-bold text-xs border border-b-0 text-slate-500">備註</div>
+                <textarea id="f-notes" rows="2" class="w-full border p-2 text-sm outline-none border-slate-300 font-bold rounded-b"></textarea>
+            </div>
 
-                <section>
-                    <div class="section-title"><i data-lucide="truck"></i> 車輛與特殊需求</div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div><label class="text-xs text-slate-500 mb-1 block">車輛類別 (車種)</label>
-                            <select name="vehicleCategory" class="form-input">
-                                <option>回頭車</option><option selected>貨車</option><option>吊卡</option><option>吊車</option><option>板車</option>
-                            </select></div>
-                        <input type="text" name="vehicleSpec" class="form-input mt-5" placeholder="車輛規格 (選填)">
-                        <input type="number" name="vehicleCount" value="1" class="form-input mt-5 text-center">
-                    </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <label class="checkbox-card"><input type="checkbox" name="needs" value="需車尾門"> 需車尾門</label>
-                        <label class="checkbox-card"><input type="checkbox" name="needs" value="需油壓板車"> 需油壓板車</label>
-                        <label class="checkbox-card"><input type="checkbox" name="needs" value="需手拉吊車"> 需手拉吊車</label>
-                        <label class="checkbox-card"><input type="checkbox" name="needs" value="需吊籃"> 需吊籃</label>
-                    </div>
-                </section>
+            <table class="w-full border-collapse">
+                <tr class="text-center font-bold">
+                    <td class="label-bg border p-1 text-[10px]">申請人</td>
+                    <td class="label-bg border p-1 text-[10px]">主管簽核</td>
+                    <td class="label-bg border p-1 text-[10px]">車輛出貨完畢</td>
+                    <td class="label-bg border p-1 text-[10px]">採購</td>
+                    <td class="label-bg border p-1 text-[10px]">會計</td>
+                </tr>
+                <tr>
+                    <td class="sign-td"></td><td class="sign-td"></td><td class="sign-td"></td><td class="sign-td"></td><td class="sign-td"></td>
+                </tr>
+            </table>
+        </form>
+    </div>
 
-                <section>
-                    <div class="section-title"><i data-lucide="map-pin"></i> 路線行程與地點</div>
-                    <div class="flex flex-col md:flex-row gap-4 items-center mb-4">
-                        <div class="flex-1 w-full bg-pickup p-4 rounded-xl">
-                            <label class="block text-xs font-bold text-green-700 mb-2">上貨地點 (FROM)</label>
-                            <input type="text" name="pickup" value="公司" class="form-input border-green-200">
-                        </div>
-                        <i data-lucide="arrow-right" class="hidden md:block text-slate-300"></i>
-                        <div class="flex-1 w-full bg-dropoff p-4 rounded-xl">
-                            <label class="block text-xs font-bold text-red-700 mb-2">下貨地點名稱 (TO NAME)</label>
-                            <input type="text" name="dropoffName" required class="form-input border-red-200" placeholder="例：台積電F18工地">
-                        </div>
-                    </div>
-                    <textarea name="dropoffAddr" required rows="2" class="form-input" placeholder="詳細下貨地址 *"></textarea>
-                </section>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-                <section>
-                    <div class="section-title"><i data-lucide="list"></i> 出貨品項清單 <span class="text-red-500 font-normal text-xs">*(至少一項)</span></div>
-                    <div id="item-box" class="space-y-2 mb-3"></div>
-                    <button type="button" onclick="addItemRow()" class="w-full py-2 border rounded-lg text-blue-600 text-xs font-bold hover:bg-slate-50">+ 新增品項</button>
-                </section>
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hexin-fleet-github';
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let user = null;
+        let records = [];
 
-                <section class="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-                    <div class="section-title text-blue-800 border-blue-200"><i data-lucide="tag"></i> 廠商與報價 (調度員專用)</div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input type="text" name="vendor" class="form-input" placeholder="承接廠商">
-                        <input type="number" name="price" class="form-input" placeholder="報價金額 (NT$)">
-                    </div>
-                </section>
-
-                <div class="flex justify-end items-center gap-6 pt-10 border-t">
-                    <button type="button" onclick="showView('dashboard')" class="text-slate-500 font-bold">取消</button>
-                    <button type="submit" class="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-blue-200 active:scale-95 transition">確認送出</button>
-                </div>
-            </form>
-        </div>
-    </main>
-
-    <script>
-        // 記憶功能關鍵：從 localStorage 讀取
-        let records = JSON.parse(localStorage.getItem('he_xin_records')) || [];
-
-        function showView(v) {
-            document.getElementById('view-dashboard').classList.toggle('hidden', v !== 'dashboard');
-            document.getElementById('view-form').classList.toggle('hidden', v !== 'form');
-            if(v === 'dashboard') renderList();
-            window.scrollTo(0,0);
-            lucide.createIcons();
-        }
-
-        function addScheduleRow(d = {date: new Date().toISOString().split('T')[0], time: "09:00"}) {
-            const div = document.createElement('div');
-            div.className = "flex items-center gap-2";
-            div.innerHTML = `<input type="date" name="s_date[]" value="${d.date}" class="form-input flex-1"><input type="time" name="s_time[]" value="${d.time}" class="form-input w-32"><button type="button" onclick="this.parentElement.remove()" class="text-slate-300 p-2 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
-            document.getElementById('schedule-box').appendChild(div);
-            lucide.createIcons();
-        }
-
-        function addItemRow(i = {name: "", qty: 1, unit: "箱"}) {
-            const div = document.createElement('div');
-            div.className = "flex items-center gap-2";
-            div.innerHTML = `<input type="text" name="i_name[]" value="${i.name}" placeholder="品項名稱" class="form-input flex-1"><input type="number" name="i_qty[]" value="${i.qty}" class="form-input w-20 text-center"><input type="text" name="i_unit[]" value="${i.unit}" class="form-input w-16 text-center"><button type="button" onclick="this.parentElement.remove()" class="text-slate-300 p-2 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
-            document.getElementById('item-box').appendChild(div);
-            lucide.createIcons();
-        }
-
-        function openForm(idx = -1) {
-            const f = document.getElementById('dispatchForm');
-            f.reset();
-            document.getElementById('schedule-box').innerHTML = "";
-            document.getElementById('item-box').innerHTML = "";
-            document.getElementById('edit-index').value = idx;
-
-            if(idx > -1) {
-                const r = records[idx];
-                f.applicant.value = r.applicant; f.projectCode.value = r.projectCode; f.dropoffName.value = r.dropoffName; f.dropoffAddr.value = r.dropoffAddr;
-                f.vendor.value = r.vendor; f.price.value = r.price; f.vehicleCategory.value = r.vehicleCategory;
-                r.schedules.forEach(s => addScheduleRow(s));
-                r.items.forEach(it => addItemRow(it));
-                f.querySelectorAll('input[name="needs"]').forEach(c => c.checked = r.needs.includes(c.value));
-            } else {
-                addScheduleRow(); addItemRow();
-            }
-            showView('form');
-        }
-
-        document.getElementById('dispatchForm').onsubmit = function(e) {
-            e.preventDefault();
-            const fd = new FormData(this);
-            const data = {
-                applicant: fd.get('applicant'), projectCode: fd.get('projectCode'),
-                dropoffName: fd.get('dropoffName'), dropoffAddr: fd.get('dropoffAddr'),
-                vehicleCategory: fd.get('vehicleCategory'), vendor: fd.get('vendor'), price: fd.get('price'),
-                needs: fd.getAll('needs'),
-                schedules: fd.getAll('s_date[]').map((d, i) => ({date: d, time: fd.getAll('s_time[]')[i]})),
-                items: fd.getAll('i_name[]').map((n, i) => ({name: n, qty: fd.getAll('i_qty[]')[i], unit: fd.getAll('i_unit[]')[i]}))
-            };
-
-            const idx = parseInt(document.getElementById('edit-index').value);
-            if(idx > -1) records[idx] = data; else records.push(data);
-
-            // 記憶功能關鍵：存回 localStorage
-            localStorage.setItem('he_xin_records', JSON.stringify(records));
-            showView('dashboard');
+        // 頁面切換
+        const showView = (view) => {
+            document.getElementById('view-list').classList.toggle('hidden', view !== 'list');
+            document.getElementById('view-form').classList.toggle('hidden', view !== 'form');
+            if (view === 'list') renderTable();
+            window.scrollTo(0, 0);
         };
 
-        function renderList() {
-            const container = document.getElementById('list-container');
-            if(records.length === 0) { container.innerHTML = `<div class="text-center py-20 text-slate-400">尚無派車資料</div>`; return; }
-            container.innerHTML = records.map((r, i) => `
-                <div class="bg-white p-5 rounded-xl border flex justify-between items-center group hover:border-blue-300 transition shadow-sm">
-                    <div>
-                        <div class="text-[10px] text-blue-500 font-bold mb-1">${r.schedules[0].date}</div>
-                        <div class="font-bold text-slate-900">${r.projectCode} - ${r.applicant}</div>
-                        <div class="text-xs text-slate-500">${r.dropoffName}</div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="openForm(${i})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="square-pen" class="w-5 h-5"></i></button>
-                        <button onclick="deleteRec(${i})" class="p-2 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                    </div>
-                </div>
-            `).reverse().join('');
-            lucide.createIcons();
-        }
+        // 新增品項
+        const addItem = (n='', q=1, u='件') => {
+            const container = document.getElementById('item-container');
+            const div = document.createElement('div');
+            div.className = "flex gap-2 item-row mb-2";
+            div.innerHTML = `
+                <input type="text" placeholder="品名/規格" value="${n}" class="i-name flex-1 border rounded p-2 text-sm outline-none">
+                <input type="number" value="${q}" class="i-qty w-16 border rounded p-2 text-sm text-center outline-none">
+                <input type="text" value="${u}" class="i-unit w-16 border rounded p-2 text-sm text-center outline-none">
+                <button type="button" class="remove-item-btn text-gray-300 hover:text-red-500 px-1 no-print">✕</button>
+            `;
+            div.querySelector('.remove-item-btn').onclick = () => div.remove();
+            container.appendChild(div);
+        };
 
-        window.deleteRec = (i) => { if(confirm('確定刪除？')) { records.splice(i, 1); localStorage.setItem('he_xin_records', JSON.stringify(records)); renderList(); } };
+        // 編輯紀錄
+        const editRecord = (id) => {
+            const r = records.find(x => x.id === id);
+            document.getElementById('edit-id').value = id || '';
+            document.getElementById('item-container').innerHTML = '';
+            
+            const fields = ['projectCode','applicant','date','time','vendor','price','carType','carCount','carSize','contactPerson','contactPhone','pickup','destination','destAddr','notes'];
+            
+            if (r) {
+                fields.forEach(f => {
+                    const el = document.getElementById('f-' + f);
+                    if (el) el.value = r[f] || '';
+                });
+                if (r.items && r.items.length) {
+                    r.items.forEach(i => addItem(i.name, i.qty, i.unit));
+                } else {
+                    addItem();
+                }
+            } else {
+                fields.forEach(f => {
+                    const el = document.getElementById('f-' + f);
+                    if (!el) return;
+                    if (f === 'carCount') el.value = 1;
+                    else if (f === 'pickup') el.value = '公司';
+                    else if (f === 'carType') el.value = '貨車';
+                    else el.value = '';
+                });
+                addItem();
+            }
+            showView('form');
+        };
 
-        window.onload = () => { renderList(); lucide.createIcons(); };
+        // 刪除紀錄
+        const deleteRecord = async (id, projectCode) => {
+            if (!user) return;
+            if (!confirm(`確定要刪除工案 [${projectCode}] 的派車單嗎？此動作無法復原。`)) return;
+
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'dispatches', id));
+            } catch (e) {
+                console.error(e);
+                alert("刪除失敗");
+            }
+        };
+
+        // 表格渲染
+        const renderTable = () => {
+            const tbody = document.getElementById('main-tbody');
+            if (!tbody) return;
+            
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-10 text-center text-slate-300 font-bold">雲端暫無資料。</td></tr>';
+                return;
+            }
+
+            let html = "";
+            records.forEach(r => {
+                html += `
+                    <tr class="row-item border-b hover:bg-slate-50 cursor-pointer transition" data-id="${r.id}">
+                        <td class="p-4 text-sm font-bold text-slate-600">${r.date || '未填'}</td>
+                        <td class="p-4 font-black text-blue-700">${r.projectCode || 'N/A'}</td>
+                        <td class="p-4 text-sm font-medium">${r.destination || ''}</td>
+                        <td class="p-4 text-sm text-slate-500">${r.vendor || ''}</td>
+                        <td class="p-4 text-right">
+                            <button class="btn-delete-row" onclick="event.stopPropagation(); window.handleDelete('${r.id}', '${r.projectCode}')">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        // 全域刪除處理函數 (供 HTML 內 onclick 使用)
+        window.handleDelete = deleteRecord;
+
+        // 事件委託監聽器 (處理編輯)
+        document.getElementById('main-tbody').addEventListener('click', (e) => {
+            const row = e.target.closest('.row-item');
+            if (row && !e.target.closest('button')) {
+                const recordId = row.getAttribute('data-id');
+                editRecord(recordId);
+            }
+        });
+
+        const saveData = async () => {
+            if (!user) return;
+            const editId = document.getElementById('edit-id').value;
+            const data = { updatedAt: serverTimestamp() };
+            const fields = ['projectCode','applicant','date','time','vendor','price','carType','carCount','carSize','contactPerson','contactPhone','pickup','destination','destAddr','notes'];
+            fields.forEach(f => { data[f] = document.getElementById('f-' + f).value; });
+            data.items = Array.from(document.querySelectorAll('.item-row')).map(row => ({
+                name: row.querySelector('.i-name').value,
+                qty: row.querySelector('.i-qty').value,
+                unit: row.querySelector('.i-unit').value
+            })).filter(i => i.name);
+
+            try {
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'dispatches');
+                if (editId) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'dispatches', editId), data);
+                } else {
+                    data.createdAt = serverTimestamp();
+                    data.createdBy = user.uid;
+                    await addDoc(colRef, data);
+                }
+                showView('list');
+            } catch (e) {
+                console.error(e);
+                alert("儲存失敗");
+            }
+        };
+
+        const printForm = () => {
+            const form = document.getElementById('dispatchForm');
+            const clone = form.cloneNode(true);
+            clone.querySelectorAll('input, select, textarea').forEach(el => {
+                const val = el.value || '';
+                const span = document.createElement('span');
+                span.className = "inline-block border-b border-slate-300 px-1 font-bold min-w-[20px]";
+                span.innerText = val;
+                el.parentNode.replaceChild(span, el);
+            });
+            const printWin = window.open('', '_blank');
+            printWin.document.write(`<html><head><title>派車單</title><script src="https://cdn.tailwindcss.com"><\/script><style>body{padding:40px;}table{width:100%;border-collapse:collapse;}td{border:1px solid black;padding:8px;}.label-bg{background:#f1f5f9;font-weight:bold;width:110px;font-size:12px;}.sign-td{height:80px;width:20%;}.no-print{display:none;}</style></head><body>${clone.innerHTML}<script>window.onload=()=>{window.print();setTimeout(()=>window.close(),500);}<\/script></body></html>`);
+            printWin.document.close();
+        };
+
+        // 初始化與綁定
+        document.getElementById('btn-new-record').onclick = () => editRecord('');
+        document.getElementById('btn-back-to-list').onclick = () => showView('list');
+        document.getElementById('btn-save').onclick = () => saveData();
+        document.getElementById('btn-print').onclick = () => printForm();
+        document.getElementById('btn-add-item').onclick = () => addItem();
+
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+
+        onAuthStateChanged(auth, (u) => {
+            user = u;
+            const statusEl = document.getElementById('auth-status');
+            if (user) {
+                statusEl.innerText = "雲端連線：正常";
+                const q = collection(db, 'artifacts', appId, 'public', 'data', 'dispatches');
+                onSnapshot(q, (snap) => {
+                    records = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                                 .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                    renderTable();
+                }, (err) => {
+                    statusEl.innerText = "連線異常";
+                });
+            }
+        });
+
+        window.onload = () => {
+            if (window.lucide) window.lucide.createIcons();
+            initAuth();
+        };
     </script>
 </body>
 </html>
