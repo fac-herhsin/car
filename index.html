@@ -148,20 +148,30 @@
 
         async function syncData() {
             toggleLoading(true);
-            try {
-                const response = await fetch(GAS_URL);
-                const res = await response.json();
-                masterData.clients = res.clients || []; // 載入客戶
-                rawData = (res.records || []).map(r => ({
-                    ...r,
-                    needs: typeof r.needs === 'string' ? JSON.parse(r.needs) : (r.needs || []),
-                    cargo: typeof r.cargo === 'string' ? JSON.parse(r.cargo) : (r.cargo || [])
-                }));
-                updateDatalists();
-                filterData();
-            } catch (e) { alert("同步連線失敗，請檢查網址與權限設定！"); }
-            finally { toggleLoading(false); }
+        try {
+        const response = await fetch(GAS_URL);
+        const res = await response.json();
+        
+        // --- 核心修正：確保所有資料都存入 masterData ---
+        masterData.clients = res.clients || [];
+        masterData.vendors = res.vendors || [];   // 新增這一行
+        masterData.vehicles = res.vehicles || []; // 新增這一行
+        // ------------------------------------------
+
+        rawData = (res.records || []).map(r => ({
+            ...r,
+            needs: typeof r.needs === 'string' ? JSON.parse(r.needs) : (r.needs || []),
+            cargo: typeof r.cargo === 'string' ? JSON.parse(r.cargo) : (r.cargo || [])
+        }));
+
+        updateDatalists(); // 現在這裡能抓到廠商和車輛資料了
+        filterData();
+        } catch (e) { 
+        console.error("同步失敗原因:", e);
+        alert("同步連線失敗，請檢查網址與權限設定！"); 
         }
+        finally { toggleLoading(false); }
+ }
 function updateDatalists() {
     console.log("正在同步下拉選單資料...", masterData); // 這行可以在 F12 主控台看到有沒有抓到資料
 
@@ -179,15 +189,21 @@ function updateDatalists() {
     }
 
     // 3. 配合廠商選單
-    const vendorList = document.getElementById('vendorOptions');
-    const vendorInput = document.getElementById('f-vendor');
-    if (vendorInput) {
-        vendorInput.setAttribute('list', 'vendorOptions'); // 強制綁定清單
-    }
-    if (vendorList && masterData.vendors) {
-        // 這裡會抓取「廠商資料表」裡面的「廠商名稱」欄位
-        vendorList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || ''}">`).join('');
-    }
+    let vendorList = document.getElementById('vendorOptions');
+if (!vendorList) {
+    vendorList = document.createElement('datalist');
+    vendorList.id = 'vendorOptions';
+    document.body.appendChild(vendorList); // 確保 datalist 存在於網頁中
+}
+
+const vendorInput = document.getElementById('f-vendor');
+if (vendorInput) {
+    vendorInput.setAttribute('list', 'vendorOptions'); // 綁定 input 與 datalist
+}
+
+if (masterData.vendors) {
+    // 修正：請確認試算表「廠商資料表」的標題是「廠商名稱」
+    vendorList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || ''}">`).join('');
 }
 
     function handleClientLookup(val) {
