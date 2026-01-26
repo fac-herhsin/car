@@ -228,9 +228,10 @@
                     </td>
                     <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
                     <td class="p-6 text-center">
-                        <div class="flex gap-2 justify-center">
-                            <button onclick="printOrder('${d.id}')" class="text-emerald-600 hover:font-bold">列印</button>
-                            <button onclick="openModal('edit', '${d.id}')" class="text-blue-600">編輯</button>
+                        <div class="flex gap-3 text-sm">
+                        <button onclick="printOrder('${d.id}')" class="text-emerald-600 hover:font-bold">列印</button>
+                        <button onclick="openModal('${d.id}')" class="text-blue-600 hover:font-bold">編輯</button>
+                        <button onclick="deleteOrder('${d.id}')" class="text-red-500 hover:font-bold">刪除</button>
                         </div>
                     </td>
                 </tr>`).join('');
@@ -367,5 +368,26 @@
     }
 }
     </script>
+    async function deleteOrder(id) {
+    if (!confirm("確定要刪除這筆紀錄嗎？")) return;
+
+    // 呼叫 API 進行刪除
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'delete',
+                data: { id: id }
+            })
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            alert("刪除成功！");
+            syncData(); // 重新整理列表
+        }
+    } catch (err) {
+        alert("刪除失敗：" + err);
+    }
+}
 </body>
 </html>
