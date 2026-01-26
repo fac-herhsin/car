@@ -368,13 +368,12 @@
     }
 }
         async function deleteOrder(id) {
-    // 補上這一行，網址請改用您原本程式碼最上方定義的那串 Google Apps Script URL
-    const API_URL = "您的_GOOGLE_APPS_SCRIPT_網址"; 
-
     if (!confirm("確定要刪除這筆紀錄嗎？")) return;
 
+    toggleLoading(true);
     try {
-        const response = await fetch(API_URL, {
+        // 這裡統一代稱為 GAS_URL，對應您程式碼第 119 行的定義
+        const response = await fetch(GAS_URL, {
             method: 'POST',
             body: JSON.stringify({
                 action: 'delete',
@@ -382,22 +381,20 @@
             })
         });
 
-    // 呼叫 API 進行刪除
-    try {
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'delete',
-                data: { id: id }
-            })
-        });
         const result = await response.json();
         if (result.status === 'success') {
             alert("刪除成功！");
             syncData(); // 重新整理列表
+        } else {
+            alert("刪除失敗：" + (result.message || "未知錯誤"));
         }
     } catch (err) {
-        alert("刪除失敗：" + err);
+        console.error("刪除錯誤:", err);
+        // 如果後端刪除成功但前端因為連線限制報錯，我們也執行同步讓畫面更新
+        alert("刪除請求已送出，正在重新整理資料...");
+        syncData();
+    } finally {
+        toggleLoading(false);
     }
 }
     </script>
