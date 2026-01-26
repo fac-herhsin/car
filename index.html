@@ -229,7 +229,7 @@
                     <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
                     <td class="p-6 text-center">
                         <div class="flex gap-2 justify-center">
-                            <button onclick="printDispatch('${d.id}')" class="text-emerald-600">列印</button>
+                            <button onclick="printOrder('${d.id}')" class="text-emerald-600 hover:font-bold">列印</button>
                             <button onclick="openModal('edit', '${d.id}')" class="text-blue-600">編輯</button>
                         </div>
                     </td>
@@ -323,6 +323,49 @@
         function printDispatch(id) { /* ... 保持原樣 ... */ }
 
         document.addEventListener('DOMContentLoaded', syncData);
+
+        function printOrder(id) {
+    // 1. 從現有的資料中找出該筆紀錄
+    const d = rawData.find(x => String(x.id) === String(id));
+    
+    if (!d) {
+        alert("找不到資料，請嘗試按下『同步資料』重新整理！");
+        return;
+    }
+
+    // 2. 填入列印版面 (對應您 HTML 裡的 printArea)
+    const pCompany = document.getElementById('p-company');
+    const pContent = document.getElementById('p-content');
+    const pCargo = document.getElementById('p-cargo');
+
+    if (pCompany && pContent && pCargo) {
+        pCompany.innerText = (d.company || "") + " 派車申請單";
+        pContent.innerHTML = `
+            <p>日期：${fmtDate(d.date)} | 時間：${fmtTime(d.time)}</p>
+            <p>客戶：${d.client || d.applicant || '未填寫'} | 申請人：${d.applicant || ''}</p>
+            <p>行程：${d.from || ''} ⮕ ${d.stop_c ? d.stop_c + ' ⮕ ' : ''} ${d.to_name || ''}</p>
+            <p>地址：${d.to_addr || ''}</p>
+            <p>車輛：${d.vspec || ''} (數量：${d.vqty || 1})</p>
+        `;
+        
+        // 處理品項列表
+        if (d.cargo && Array.isArray(d.cargo)) {
+            pCargo.innerHTML = d.cargo.map(c => `
+                <tr>
+                    <td class="border p-2">${c.n || ''}</td>
+                    <td class="border p-2 text-center">${c.q || ''}${c.u || ''}</td>
+                </tr>
+            `).join('');
+        } else {
+            pCargo.innerHTML = '<tr><td colspan="2" class="p-2 text-center">無品項明細</td></tr>';
+        }
+
+        // 3. 呼叫瀏覽器列印功能
+        window.print();
+    } else {
+        alert("找不到列印版面 (printArea)，請檢查 HTML 結構是否完整。");
+    }
+}
     </script>
 </body>
 </html>
