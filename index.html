@@ -163,33 +163,30 @@
             finally { toggleLoading(false); }
         }
 function updateDatalists() {
-    // 1. 客戶選單 (對應試算表：客戶簡稱)
+    console.log("正在同步下拉選單資料...", masterData); // 這行可以在 F12 主控台看到有沒有抓到資料
+
+    // 1. 客戶選單
     const clientList = document.getElementById('clientOptions');
-    if (clientList) {
-        clientList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱}">`).join('');
+    if (clientList && masterData.clients) {
+        clientList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱 || ''}">`).join('');
     }
 
-    // 2. 車輛規格選單 (對應試算表：車輛規格)
+    // 2. 車輛規格選單
     const vspecList = document.getElementById('vspecOptions');
     if (vspecList && masterData.vehicles) {
-        vspecList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格}">`).join('');
+        // 這裡會抓取「車輛資料表」裡面的「車輛規格」欄位
+        vspecList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格 || ''}">`).join('');
     }
 
-    // 3. 廠商選單 (對應試算表：廠商名稱)
-    let vendorList = document.getElementById('vendorOptions');
-    if (!vendorList) {
-        vendorList = document.createElement('datalist');
-        vendorList.id = 'vendorOptions';
-        document.body.appendChild(vendorList);
-    }
-    // 確保欄位綁定到這個清單
+    // 3. 配合廠商選單
+    const vendorList = document.getElementById('vendorOptions');
     const vendorInput = document.getElementById('f-vendor');
     if (vendorInput) {
-        vendorInput.setAttribute('list', 'vendorOptions');
+        vendorInput.setAttribute('list', 'vendorOptions'); // 強制綁定清單
     }
-    
-    if (masterData.vendors) {
-        vendorList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱}">`).join('');
+    if (vendorList && masterData.vendors) {
+        // 這裡會抓取「廠商資料表」裡面的「廠商名稱」欄位
+        vendorList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || ''}">`).join('');
     }
 }
 
