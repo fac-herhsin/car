@@ -368,7 +368,19 @@
     }
 }
         async function deleteOrder(id) {
+    // 補上這一行，網址請改用您原本程式碼最上方定義的那串 Google Apps Script URL
+    const API_URL = "您的_GOOGLE_APPS_SCRIPT_網址"; 
+
     if (!confirm("確定要刪除這筆紀錄嗎？")) return;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'delete',
+                data: { id: id }
+            })
+        });
 
     // 呼叫 API 進行刪除
     try {
