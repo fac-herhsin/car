@@ -162,18 +162,36 @@
             } catch (e) { alert("同步連線失敗，請檢查網址與權限設定！"); }
             finally { toggleLoading(false); }
         }
-
-        function updateDatalists() {
-        const list = document.getElementById('clientOptions');
-        // 對應試算表「客戶資料表」的「客戶簡稱」欄位
-        list.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱}">`).join('');
-        
-        // 建議順便把「車輛規格」的選單也加在這裡
-        const vList = document.getElementById('vspecOptions');
-        if (vList && masterData.vehicles) {
-            vList.innerHTML = masterData.vehicles.map(v => `<option value="${v}">`).join('');
-        }
+function updateDatalists() {
+    // 1. 客戶選單 (對應試算表：客戶簡稱)
+    const clientList = document.getElementById('clientOptions');
+    if (clientList) {
+        clientList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱}">`).join('');
     }
+
+    // 2. 車輛規格選單 (對應試算表：車輛規格)
+    const vspecList = document.getElementById('vspecOptions');
+    if (vspecList && masterData.vehicles) {
+        vspecList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格}">`).join('');
+    }
+
+    // 3. 廠商選單 (對應試算表：廠商名稱)
+    let vendorList = document.getElementById('vendorOptions');
+    if (!vendorList) {
+        vendorList = document.createElement('datalist');
+        vendorList.id = 'vendorOptions';
+        document.body.appendChild(vendorList);
+    }
+    // 確保欄位綁定到這個清單
+    const vendorInput = document.getElementById('f-vendor');
+    if (vendorInput) {
+        vendorInput.setAttribute('list', 'vendorOptions');
+    }
+    
+    if (masterData.vendors) {
+        vendorList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱}">`).join('');
+    }
+}
 
     function handleClientLookup(val) {
         const c = masterData.clients.find(x => x.客戶簡稱 === val);
