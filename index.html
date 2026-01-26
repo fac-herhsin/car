@@ -367,8 +367,7 @@
         alert("找不到列印版面 (printArea)，請檢查 HTML 結構是否完整。");
     }
 }
-    </script>
-    async function deleteOrder(id) {
+        async function deleteOrder(id) {
     if (!confirm("確定要刪除這筆紀錄嗎？")) return;
 
     // 呼叫 API 進行刪除
@@ -389,5 +388,7 @@
         alert("刪除失敗：" + err);
     }
 }
+    </script>
+    
 </body>
 </html>
