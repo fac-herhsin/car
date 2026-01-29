@@ -228,10 +228,21 @@
                     </td>
                     <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
                     <td class="p-6 text-center">
-                        <div class="flex gap-3 text-sm">
-                        <button onclick="printOrder('${d.id}')" class="text-emerald-600 hover:font-bold">列印</button>
-                        <button onclick="openModal('${d.id}')" class="text-blue-600 hover:font-bold">編輯</button>
-                        <button onclick="deleteOrder('${d.id}')" class="text-red-500 hover:font-bold">刪除</button>
+                        <div class="flex gap-4 justify-center items-center">
+                            <button onclick="printOrder('${d.id}')" 
+                             class="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all font-black text-xl shadow-sm">
+                                <i class="fas fa-print mr-2"></i>列印
+                            </button>
+                
+                            <button onclick="openModal('${d.id}')" 
+                                class="bg-blue-50 text-blue-600 px-5 py-3 rounded-2xl border border-blue-200 hover:bg-blue-600 hover:text-white transition-all font-black text-xl shadow-sm">
+                                <i class="fas fa-edit mr-2"></i>編輯
+                            </button>
+                
+                            <button onclick="deleteOrder('${d.id}')" 
+                                class="bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-black text-xl shadow-sm">
+                                <i class="fas fa-trash-alt mr-2"></i>刪除
+                            </button>
                         </div>
                     </td>
                 </tr>`).join('');
