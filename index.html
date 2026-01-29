@@ -320,7 +320,44 @@
 
         function closeModal() { document.getElementById('formModal').style.display='none'; }
         function toggleLoading(s) { document.getElementById('loading').style.display = s?'flex':'none'; }
-        function exportExcel() { /* ... 保持原樣 ... */ }
+        function exportExcel() {
+    try {
+        const range = document.getElementById('exportRange').value;
+        const now = new Date();
+        
+        // 過濾資料：確保 rawData 存在且有內容
+        const filtered = (rawData || []).filter(d => {
+            if (!d.date) return false;
+            const dDate = new Date(d.date);
+            if (range === 'year') return dDate.getFullYear() === now.getFullYear();
+            return dDate.getFullYear() === now.getFullYear() && dDate.getMonth() === now.getMonth();
+        });
+
+        if (filtered.length === 0) {
+            alert("目前選擇的範圍內沒有資料可以轉出報表！");
+            return;
+        }
+
+        // 轉換為 Excel 工作表
+        const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ 
+            '日期': fmtDate(d.date), 
+            '公司': d.company, 
+            '客戶': d.client, 
+            '起點': d.from, 
+            '目的地': d.to_name, 
+            '報價': d.price 
+        })));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "報表");
+        
+        // 執行下載
+        XLSX.writeFile(wb, `派車報表_${range === 'year' ? '年度' : '本月'}.xlsx`);
+    } catch (err) {
+        console.error("匯出失敗:", err);
+        alert("匯出報表時發生錯誤，請稍後再試。");
+    }
+}
         function printDispatch(id) { /* ... 保持原樣 ... */ }
 
         document.addEventListener('DOMContentLoaded', syncData);
