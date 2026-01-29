@@ -98,66 +98,41 @@
                 <div><div class="section-title">備註事項</div><textarea id="f-notes" placeholder="備註內容..."></textarea></div>
 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 border-t-2 pt-10">
-    <div>
-        <div class="section-title">車輛規格</div>
-        <input type="text" id="f-vspec" list="vspecOptions" placeholder="選擇或輸入規格">
-        <datalist id="vspecOptions"></datalist>
-    </div>
-    
-    <div>
-        <div class="section-title">需求數量</div>
-        <input type="number" id="f-vqty" value="1" min="1">
-    </div>
+                    <div><div class="section-title">車輛規格</div><input type="text" id="f-vspec" list="vspecOptions"><datalist id="vspecOptions"></datalist></div>
+                    <div><div class="section-title">需求數量</div><input type="number" id="f-vqty" value="1" min="1"></div>
+                    <div><div class="section-title">配合廠商</div><input type="text" id="f-vendor" placeholder="廠商名稱"></div>
+                    <div><div class="section-title">報價</div><input type="number" id="f-price" placeholder="NT$"></div>
+                </div>
 
-    <div>
-        <div class="section-title">配合廠商</div>
-        <input type="text" id="f-vendor" placeholder="廠商名稱">
-    </div>
-
-    <div>
-        <div class="section-title">報價</div>
-        <input type="number" id="f-price" placeholder="NT$">
-    </div>
-</div>
-
-<div class="flex justify-end gap-6 mt-8">
-    <button type="button" onclick="closeModal()" class="px-10 font-bold">取消</button>
-    <button type="submit" class="bg-blue-600 text-white px-20 py-5 rounded-2xl font-black">儲存並上傳</button>
-</div>
+                <div class="flex justify-end gap-6 mt-8">
+                    <button type="button" onclick="closeModal()" class="px-10 font-bold">取消</button>
+                    <button type="submit" class="bg-blue-600 text-white px-20 py-5 rounded-2xl font-black">儲存並上傳</button>
+                </div>
             </form>
         </div>
     </div>
 
     <div id="printArea" class="p-10">
-    <div class="text-center border-b-4 border-black pb-4 mb-8">
-        <h1 id="p-company" class="text-4xl font-black mb-2">何鑫實業 派車申請單</h1>
-    </div>
-    
-    <div class="grid grid-cols-2 gap-y-5 text-2xl mb-8">
-        <div><strong>日　　期：</strong><span id="p-date"></span></div>
-        <div><strong>時　　間：</strong><span id="p-time"></span></div>
-        <div><strong>客　　戶：</strong><span id="p-client"></span></div>
-        <div><strong>聯 絡 人：</strong><span id="p-contact"></span></div>
-        <div><strong>聯絡電話：</strong><span id="p-phone"></span></div>
-        <div><strong>申 請 人：</strong><span id="p-applicant"></span></div>
-        <div class="col-span-2"><strong>行　　程：</strong><span id="p-route"></span></div>
-        <div class="col-span-2"><strong>地　　址：</strong><span id="p-addr"></span></div>
-        <div><strong>車　　種：</strong><span id="p-vspec"></span></div>
-        <div><strong>需求數量：</strong><span id="p-vqty"></span></div>
-    </div>
-
-    <table class="w-full border-2 border-black text-xl mb-10">
-        <thead>
-            <tr class="bg-gray-100">
-                <th class="border-2 border-black p-2 w-2/3">品項名稱</th>
-                <th class="border-2 border-black p-2">數量/單位</th>
-            </tr>
-        </thead>
-        <tbody id="p-cargo"></tbody>
-    </table>
-
-    <div class="mt-20">
-        <div class="grid grid-cols-5 gap-4 text-center font-bold text-xl border-t-2 border-black pt-10">
+        <div class="text-center border-b-4 border-black pb-4 mb-8">
+            <h1 id="p-company" class="text-4xl font-black mb-2">何鑫實業 派車申請單</h1>
+        </div>
+        <div class="grid grid-cols-2 gap-y-5 text-2xl mb-8">
+            <div><strong>日　　期：</strong><span id="p-date"></span></div>
+            <div><strong>時　　間：</strong><span id="p-time"></span></div>
+            <div><strong>客　　戶：</strong><span id="p-client"></span></div>
+            <div><strong>聯 絡 人：</strong><span id="p-contact"></span></div>
+            <div><strong>聯絡電話：</strong><span id="p-phone"></span></div>
+            <div><strong>申 請 人：</strong><span id="p-applicant"></span></div>
+            <div class="col-span-2"><strong>行　　程：</strong><span id="p-route"></span></div>
+            <div class="col-span-2"><strong>地　　址：</strong><span id="p-addr"></span></div>
+            <div><strong>車　　種：</strong><span id="p-vspec"></span></div>
+            <div><strong>需求數量：</strong><span id="p-vqty"></span></div>
+        </div>
+        <table class="w-full border-2 border-black text-xl mb-10">
+            <thead><tr class="bg-gray-100"><th class="border-2 border-black p-2 w-2/3">品項名稱</th><th class="border-2 border-black p-2">數量/單位</th></tr></thead>
+            <tbody id="p-cargo"></tbody>
+        </table>
+        <div class="mt-20 grid grid-cols-5 gap-4 text-center font-bold text-xl border-t-2 border-black pt-10">
             <div>申請人<br><br><br>__________</div>
             <div>主管簽核<br><br><br>__________</div>
             <div>出貨完畢<br><br><br>__________</div>
@@ -165,7 +140,8 @@
             <div>會計簽名<br><br><br>__________</div>
         </div>
     </div>
-</div>
+
+    <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzxzJ2T-lgiVC9uAu5Q0FbDx4sLlYYnEIWwqnxobOGmbFCpMoMzpgrGYmt24OW-k3gCxA/exec";
         let rawData = [];
         let masterData = { clients: [], vendors: [], vehicles: [] };
@@ -178,60 +154,31 @@
             try {
                 const response = await fetch(GAS_URL);
                 const res = await response.json();
-                
                 masterData.clients = res.clients || [];
                 masterData.vendors = res.vendors || [];
                 masterData.vehicles = res.vehicles || [];
-
                 rawData = (res.records || []).map(r => ({
                     ...r,
                     cargo: typeof r.cargo === 'string' ? JSON.parse(r.cargo) : (r.cargo || [])
                 }));
-
                 updateDatalists();
                 filterData();
             } catch (e) { 
-                console.error("同步失敗原因:", e);
-                alert("同步連線失敗，請檢查網址與權限設定！"); 
-            } finally { 
-                toggleLoading(false); 
-            }
+                console.error(e);
+                alert("同步失敗！"); 
+            } finally { toggleLoading(false); }
         }
 
         function updateDatalists() {
-            // 1. 客戶選單
-            const clientList = document.getElementById('clientOptions');
-            if (clientList) {
-                clientList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱 || ''}">`).join('');
-            }
-
-            // 2. 車輛規格選單
-            const vspecList = document.getElementById('vspecOptions');
-            if (vspecList) {
-                vspecList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格 || ''}">`).join('');
-            }
-
-            // 3. 配合廠商選單
-            let vendorList = document.getElementById('vendorOptions');
-            if (!vendorList) {
-                vendorList = document.createElement('datalist');
-                vendorList.id = 'vendorOptions';
-                document.body.appendChild(vendorList);
-            }
-            const vendorInput = document.getElementById('f-vendor');
-            if (vendorInput) vendorInput.setAttribute('list', 'vendorOptions');
-            
-            if (masterData.vendors) {
-                vendorList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || ''}">`).join('');
-            }
-        } // <--- 之前就是漏了這一個大括號
+            const cList = document.getElementById('clientOptions');
+            if (cList) cList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱 || ''}">`).join('');
+            const vList = document.getElementById('vspecOptions');
+            if (vList) vList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格 || ''}">`).join('');
+        }
 
         function handleClientLookup(val) {
             const c = masterData.clients.find(x => x.客戶簡稱 === val);
-            if (c) {
-                const addrInput = document.getElementById('f-to-addr');
-                if (addrInput) addrInput.value = c.下貨地址 || '';
-            }
+            if (c) document.getElementById('f-to-addr').value = c.下貨地址 || '';
         }
 
         function filterData() {
@@ -239,7 +186,7 @@
             const monthQ = document.getElementById('searchMonth').value;
             const tbody = document.getElementById('dataTable');
             const filtered = rawData.filter(d => {
-                const matchClient = (d.client || "").toLowerCase().includes(clientQ) || JSON.stringify(d.cargo).includes(clientQ);
+                const matchClient = (d.client || "").toLowerCase().includes(clientQ);
                 const matchMonth = !monthQ || d.date.startsWith(monthQ);
                 return matchClient && matchMonth;
             });
@@ -250,26 +197,15 @@
                         <div class="text-lg text-slate-500">${fmtDate(d.date)} | ${fmtTime(d.time)}</div>
                     </td>
                     <td class="p-6">
-                    <div class="text-2xl text-slate-800">${d.client || '無客戶資料'}</div>
-                    <div class="text-sm text-emerald-600">${d.from} ⮕ ${d.to_name || ''}</div>
+                        <div class="text-2xl text-slate-800">${d.client || '無'}</div>
+                        <div class="text-sm text-emerald-600">${d.from} ⮕ ${d.to_name || ''}</div>
                     </td>
                     <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
                     <td class="p-6 text-center">
                         <div class="flex gap-4 justify-center items-center">
-                            <button onclick="printOrder('${d.id}')" 
-                             class="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all font-black text-xl shadow-sm">
-                                <i class="fas fa-print mr-2"></i>列印
-                            </button>
-                
-                            <button onclick="openModal('${d.id}')" 
-                                class="bg-blue-50 text-blue-600 px-5 py-3 rounded-2xl border border-blue-200 hover:bg-blue-600 hover:text-white transition-all font-black text-xl shadow-sm">
-                                <i class="fas fa-edit mr-2"></i>編輯
-                            </button>
-                
-                            <button onclick="deleteOrder('${d.id}')" 
-                                class="bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-black text-xl shadow-sm">
-                                <i class="fas fa-trash-alt mr-2"></i>刪除
-                            </button>
+                            <button onclick="printOrder('${d.id}')" class="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all font-black text-xl shadow-sm">列印</button>
+                            <button onclick="openModal('edit','${d.id}')" class="bg-blue-50 text-blue-600 px-5 py-3 rounded-2xl border border-blue-200 hover:bg-blue-600 hover:text-white transition-all font-black text-xl shadow-sm">編輯</button>
+                            <button onclick="deleteOrder('${d.id}')" class="bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-black text-xl shadow-sm">刪除</button>
                         </div>
                     </td>
                 </tr>`).join('');
@@ -281,9 +217,8 @@
             document.getElementById('cargoList').innerHTML = '';
             document.getElementById('editId').value = id || '';
             document.getElementById('modalTitle').innerText = id ? "編輯紀錄" : "新增派車";
-            
             if (id) {
-                const d = rawData.find(x => x.id.toString() === id.toString());
+                const d = rawData.find(x => String(x.id) === String(id));
                 if (d) {
                     const fields = ['company','date','from','to-name','stop-c','to-addr','client','applicant','l','w','h','wt','notes','vendor','price','vspec','vqty'];
                     fields.forEach(k => {
@@ -293,16 +228,14 @@
                     document.getElementById('f-time').value = fmtTime(d.time);
                     if(d.cargo) d.cargo.forEach(c => addCargoRow(c.n, c.q, c.u));
                 }
-            } else { 
-                addCargoRow(); 
-            }
+            } else { addCargoRow(); }
             document.getElementById('formModal').style.display = 'flex';
         }
 
         function addCargoRow(n='', q='1', u='式') {
             document.getElementById('cargoList').insertAdjacentHTML('beforeend', `
             <div class="flex gap-4 items-center">
-                <input type="text" name="cn[]" value="${n}" placeholder="品項名稱" class="flex-[4]">
+                <input type="text" name="cn[]" value="${n}" placeholder="品項" class="flex-[4]">
                 <input type="number" name="cq[]" value="${q}" class="flex-1 text-center">
                 <input type="text" name="cu[]" value="${u}" class="flex-1 text-center">
                 <button type="button" onclick="this.parentElement.remove()" class="text-rose-400 text-3xl">&times;</button>
@@ -318,7 +251,6 @@
             for (let i = 0; i < ns.length; i++) {
                 if (ns[i].value) cargo.push({ n: ns[i].value, q: qs[i].value, u: us[i].value });
             }
-
             const data = {
                 id: document.getElementById('editId').value || Date.now().toString(),
                 company: document.getElementById('f-company').value,
@@ -332,164 +264,66 @@
                 stop_c: document.getElementById('f-stop-c').value,
                 vspec: document.getElementById('f-vspec').value,
                 vqty: document.getElementById('f-vqty').value,
-                l: document.getElementById('f-l').value, 
-                w: document.getElementById('f-w').value,
-                h: document.getElementById('f-h').value, 
-                wt: document.getElementById('f-wt').value,
+                l: document.getElementById('f-l').value, w: document.getElementById('f-w').value, h: document.getElementById('f-h').value, wt: document.getElementById('f-wt').value,
                 vendor: document.getElementById('f-vendor').value,
                 price: document.getElementById('f-price').value,
                 notes: document.getElementById('f-notes').value,
                 cargo: cargo
             };
-
             toggleLoading(true);
             try {
-                await fetch(GAS_URL, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    body: JSON.stringify({ action: 'save', data }) 
-                });
-                setTimeout(() => { syncData(); closeModal(); }, 1200);
-            } catch (err) {
-                alert("儲存失敗，請檢查網路連線。");
-                toggleLoading(false);
-            }
+                await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'save', data }) });
+                setTimeout(() => { syncData(); closeModal(); }, 1000);
+            } catch (err) { alert("儲存失敗"); toggleLoading(false); }
         };
 
         function closeModal() { document.getElementById('formModal').style.display='none'; }
         function toggleLoading(s) { document.getElementById('loading').style.display = s?'flex':'none'; }
+
         function exportExcel() {
-    try {
-        const range = document.getElementById('exportRange').value; // 今年/本月
-        const customMonth = document.getElementById('searchMonth').value; // 2026-03 這種格式
-        const now = new Date();
-        
-        // 1. 決定過濾邏輯
-        const filtered = (rawData || []).filter(d => {
-            if (!d.date) return false;
-            const dDate = new Date(d.date);
-            const dYear = dDate.getFullYear();
-            const dMonth = dDate.getMonth() + 1; // JS 月份從 0 開始
-
-            // 優先判斷是否有選擇「特定月份」(例如選了 3 月看 3 月)
-            if (customMonth) {
-                const [selYear, selMonth] = customMonth.split('-').map(Number);
-                return dYear === selYear && dMonth === selMonth;
-            }
-
-            // 若沒選特定月份，則走「今年」或「本月」選單
-            if (range === 'year') {
-                return dYear === now.getFullYear();
-            } else {
-                return dYear === now.getFullYear() && dMonth === (now.getMonth() + 1);
-            }
-        });
-
-        if (filtered.length === 0) {
-            alert("目前選擇的範圍內沒有資料！請確認上方日期選擇器是否正確。");
-            return;
+            const range = document.getElementById('exportRange').value;
+            const customMonth = document.getElementById('searchMonth').value;
+            const now = new Date();
+            const filtered = rawData.filter(d => {
+                const dDate = new Date(d.date);
+                if (customMonth) return d.date.startsWith(customMonth);
+                return range === 'year' ? dDate.getFullYear() === now.getFullYear() : (dDate.getFullYear() === now.getFullYear() && (dDate.getMonth()+1) === (now.getMonth()+1));
+            });
+            const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ '日期': fmtDate(d.date), '公司': d.company, '客戶': d.client, '廠商': d.vendor, '目的地': d.to_name, '報價': d.price })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "報表");
+            XLSX.writeFile(wb, `報表_${customMonth || range}.xlsx`);
         }
-
-        // 2. 轉換為 Excel 工作表 (新增「廠商」欄位)
-        const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ 
-            '日期': fmtDate(d.date), 
-            '公司': d.company, 
-            '客戶': d.client, 
-            '廠商': d.vendor || '-', // 新增這行：抓取廠商資料
-            '起點': d.from, 
-            '目的地': d.to_name, 
-            '報價': d.price 
-        })));
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "報表");
-        
-        // 3. 檔名動態調整
-        let fileName = customMonth ? `派車報表_${customMonth}.xlsx` : `派車報表_${range}.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        
-    } catch (err) {
-        console.error("匯出失敗:", err);
-        alert("匯出報表時發生錯誤。");
-    }
-}
-        function printDispatch(id) { /* ... 保持原樣 ... */ }
-
-        document.addEventListener('DOMContentLoaded', syncData);
 
         function printOrder(id) {
-    // 1. 從現有的資料中找出該筆紀錄
-    const d = rawData.find(x => String(x.id) === String(id));
-    
-    if (!d) {
-        alert("找不到資料，請嘗試按下『同步資料』重新整理！");
-        return;
-    }
-
-    // 2. 填入列印版面 (對應您 HTML 裡的 printArea)
-    const pCompany = document.getElementById('p-company');
-    const pContent = document.getElementById('p-content');
-    const pCargo = document.getElementById('p-cargo');
-
-    if (pCompany && pContent && pCargo) {
-        pCompany.innerText = (d.company || "") + " 派車申請單";
-        pContent.innerHTML = `
-            <p>日期：${fmtDate(d.date)} | 時間：${fmtTime(d.time)}</p>
-            <p>客戶：${d.client || d.applicant || '未填寫'} | 申請人：${d.applicant || ''}</p>
-            <p>行程：${d.from || ''} ⮕ ${d.stop_c ? d.stop_c + ' ⮕ ' : ''} ${d.to_name || ''}</p>
-            <p>地址：${d.to_addr || ''}</p>
-            <p>車輛：${d.vspec || ''} (數量：${d.vqty || 1})</p>
-        `;
-        
-        // 處理品項列表
-        if (d.cargo && Array.isArray(d.cargo)) {
-            pCargo.innerHTML = d.cargo.map(c => `
-                <tr>
-                    <td class="border p-2">${c.n || ''}</td>
-                    <td class="border p-2 text-center">${c.q || ''}${c.u || ''}</td>
-                </tr>
-            `).join('');
-        } else {
-            pCargo.innerHTML = '<tr><td colspan="2" class="p-2 text-center">無品項明細</td></tr>';
+            const d = rawData.find(x => String(x.id) === String(id));
+            if (!d) return alert("找不到資料");
+            const clientInfo = masterData.clients.find(c => c.客戶簡稱 === d.client) || {};
+            document.getElementById('p-company').innerText = d.company + " 派車申請單";
+            document.getElementById('p-date').innerText = fmtDate(d.date);
+            document.getElementById('p-time').innerText = fmtTime(d.time);
+            document.getElementById('p-client').innerText = d.client || "";
+            document.getElementById('p-contact').innerText = clientInfo.聯絡人 || "__________";
+            document.getElementById('p-phone').innerText = clientInfo.電話 || "__________";
+            document.getElementById('p-applicant').innerText = d.applicant || "";
+            document.getElementById('p-route').innerText = `${d.from} ⮕ ${d.to_name}`;
+            document.getElementById('p-addr').innerText = d.to_addr || "";
+            document.getElementById('p-vspec').innerText = d.vspec || "";
+            document.getElementById('p-vqty').innerText = d.vqty || "1";
+            document.getElementById('p-cargo').innerHTML = d.cargo.map(c => `<tr><td class="border-2 border-black p-2">${c.n}</td><td class="border-2 border-black p-2 text-center">${c.q}${c.u}</td></tr>`).join('');
+            window.print();
         }
 
-        // 3. 呼叫瀏覽器列印功能
-        window.print();
-    } else {
-        alert("找不到列印版面 (printArea)，請檢查 HTML 結構是否完整。");
-    }
-}
         async function deleteOrder(id) {
-    if (!confirm("確定要刪除這筆紀錄嗎？")) return;
-
-    toggleLoading(true);
-    try {
-        // 這裡統一代稱為 GAS_URL，對應您程式碼第 119 行的定義
-        const response = await fetch(GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'delete',
-                data: { id: id }
-            })
-        });
-
-        const result = await response.json();
-        if (result.status === 'success') {
-            alert("刪除成功！");
-            syncData(); // 重新整理列表
-        } else {
-            alert("刪除失敗：" + (result.message || "未知錯誤"));
+            if (!confirm("確定要刪除？")) return;
+            toggleLoading(true);
+            try {
+                await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', data: { id } }) });
+                setTimeout(syncData, 1000);
+            } catch (err) { alert("刪除失敗"); toggleLoading(false); }
         }
-    } catch (err) {
-        console.error("刪除錯誤:", err);
-        // 如果後端刪除成功但前端因為連線限制報錯，我們也執行同步讓畫面更新
-        alert("刪除請求已送出，正在重新整理資料...");
-        syncData();
-    } finally {
-        toggleLoading(false);
-    }
-}
+
+        document.addEventListener('DOMContentLoaded', syncData);
     </script>
-    
 </body>
 </html>
