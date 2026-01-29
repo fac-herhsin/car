@@ -128,17 +128,44 @@
         </div>
     </div>
 
-    <div id="printArea">
-        <h1 id="p-company" class="text-center text-4xl font-black border-b-4 border-black pb-4 mb-10">派車申請單</h1>
-        <div id="p-content" class="text-2xl space-y-4 mb-10"></div>
-        <table class="w-full border-2 border-black text-xl mb-10">
-            <thead><tr class="bg-gray-100"><th class="border p-2">品項</th><th class="border p-2">數量</th></tr></thead>
-            <tbody id="p-cargo"></tbody>
-        </table>
-        <div class="flex justify-between mt-20 font-bold text-2xl border-t-2 border-black pt-10"><div>申請人簽名：__________</div><div>主管簽核：__________</div><div>司機簽收：__________</div></div>
+    <div id="printArea" class="p-10">
+    <div class="text-center border-b-4 border-black pb-4 mb-8">
+        <h1 id="p-company" class="text-4xl font-black mb-2">何鑫實業 派車申請單</h1>
+    </div>
+    
+    <div class="grid grid-cols-2 gap-y-5 text-2xl mb-8">
+        <div><strong>日　　期：</strong><span id="p-date"></span></div>
+        <div><strong>時　　間：</strong><span id="p-time"></span></div>
+        <div><strong>客　　戶：</strong><span id="p-client"></span></div>
+        <div><strong>聯 絡 人：</strong><span id="p-contact"></span></div>
+        <div><strong>聯絡電話：</strong><span id="p-phone"></span></div>
+        <div><strong>申 請 人：</strong><span id="p-applicant"></span></div>
+        <div class="col-span-2"><strong>行　　程：</strong><span id="p-route"></span></div>
+        <div class="col-span-2"><strong>地　　址：</strong><span id="p-addr"></span></div>
+        <div><strong>車　　種：</strong><span id="p-vspec"></span></div>
+        <div><strong>需求數量：</strong><span id="p-vqty"></span></div>
     </div>
 
-    <script>
+    <table class="w-full border-2 border-black text-xl mb-10">
+        <thead>
+            <tr class="bg-gray-100">
+                <th class="border-2 border-black p-2 w-2/3">品項名稱</th>
+                <th class="border-2 border-black p-2">數量/單位</th>
+            </tr>
+        </thead>
+        <tbody id="p-cargo"></tbody>
+    </table>
+
+    <div class="mt-20">
+        <div class="grid grid-cols-5 gap-4 text-center font-bold text-xl border-t-2 border-black pt-10">
+            <div>申請人<br><br><br>__________</div>
+            <div>主管簽核<br><br><br>__________</div>
+            <div>出貨完畢<br><br><br>__________</div>
+            <div>採購簽名<br><br><br>__________</div>
+            <div>會計簽名<br><br><br>__________</div>
+        </div>
+    </div>
+</div>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzxzJ2T-lgiVC9uAu5Q0FbDx4sLlYYnEIWwqnxobOGmbFCpMoMzpgrGYmt24OW-k3gCxA/exec";
         let rawData = [];
         let masterData = { clients: [], vendors: [], vehicles: [] };
