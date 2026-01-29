@@ -322,27 +322,42 @@
         function toggleLoading(s) { document.getElementById('loading').style.display = s?'flex':'none'; }
         function exportExcel() {
     try {
-        const range = document.getElementById('exportRange').value;
+        const range = document.getElementById('exportRange').value; // 今年/本月
+        const customMonth = document.getElementById('searchMonth').value; // 2026-03 這種格式
         const now = new Date();
         
-        // 過濾資料：確保 rawData 存在且有內容
+        // 1. 決定過濾邏輯
         const filtered = (rawData || []).filter(d => {
             if (!d.date) return false;
             const dDate = new Date(d.date);
-            if (range === 'year') return dDate.getFullYear() === now.getFullYear();
-            return dDate.getFullYear() === now.getFullYear() && dDate.getMonth() === now.getMonth();
+            const dYear = dDate.getFullYear();
+            const dMonth = dDate.getMonth() + 1; // JS 月份從 0 開始
+
+            // 優先判斷是否有選擇「特定月份」(例如選了 3 月看 3 月)
+            if (customMonth) {
+                const [selYear, selMonth] = customMonth.split('-').map(Number);
+                return dYear === selYear && dMonth === selMonth;
+            }
+
+            // 若沒選特定月份，則走「今年」或「本月」選單
+            if (range === 'year') {
+                return dYear === now.getFullYear();
+            } else {
+                return dYear === now.getFullYear() && dMonth === (now.getMonth() + 1);
+            }
         });
 
         if (filtered.length === 0) {
-            alert("目前選擇的範圍內沒有資料可以轉出報表！");
+            alert("目前選擇的範圍內沒有資料！請確認上方日期選擇器是否正確。");
             return;
         }
 
-        // 轉換為 Excel 工作表
+        // 2. 轉換為 Excel 工作表 (新增「廠商」欄位)
         const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ 
             '日期': fmtDate(d.date), 
             '公司': d.company, 
             '客戶': d.client, 
+            '廠商': d.vendor || '-', // 新增這行：抓取廠商資料
             '起點': d.from, 
             '目的地': d.to_name, 
             '報價': d.price 
@@ -351,11 +366,13 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "報表");
         
-        // 執行下載
-        XLSX.writeFile(wb, `派車報表_${range === 'year' ? '年度' : '本月'}.xlsx`);
+        // 3. 檔名動態調整
+        let fileName = customMonth ? `派車報表_${customMonth}.xlsx` : `派車報表_${range}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
     } catch (err) {
         console.error("匯出失敗:", err);
-        alert("匯出報表時發生錯誤，請稍後再試。");
+        alert("匯出報表時發生錯誤。");
     }
 }
         function printDispatch(id) { /* ... 保持原樣 ... */ }
