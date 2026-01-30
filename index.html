@@ -75,7 +75,7 @@
                 <div>
                     <div class="section-title">行程與客戶</div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                        <div><label class="text-sm font-black">客戶簡稱 (連動)</label><input type="text" id="f-client" list="clientOptions" oninput="handleClientLookup(this.value)"><datalist id="clientOptions"></datalist></div>
+                        <div><label class="text-sm font-black">客戶簡稱 (連動)</label><input type="text" id="f-client" list="clientOptions" onfocus="this.value=''" oninput="handleClientLookup(this.value)"><datalist id="clientOptions"></datalist></div>
                         <div><label class="text-sm font-black">申請人</label><input type="text" id="f-applicant"></div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
@@ -98,9 +98,9 @@
                 <div><div class="section-title">備註事項</div><textarea id="f-notes" placeholder="備註內容..."></textarea></div>
 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 border-t-2 pt-10">
-                    <div><div class="section-title">車輛規格</div><input type="text" id="f-vspec" list="vspecOptions"><datalist id="vspecOptions"></datalist></div>
+                    <div><div class="section-title">車輛規格</div><input type="text" id="f-vspec" list="vspecOptions" onfocus="this.value=''"><datalist id="vspecOptions"></datalist></div>
                     <div><div class="section-title">需求數量</div><input type="number" id="f-vqty" value="1" min="1"></div>
-                    <div><div class="section-title">配合廠商</div><input type="text" id="f-vendor" list="vendorOptions" placeholder="廠商名稱">
+                    <div><div class="section-title">配合廠商</div><input type="text" id="f-vendor" list="vendorOptions" onfocus="this.value=''" placeholder="廠商名稱">
                             <datalist id="vendorOptions"></datalist></div>
                     <div><div class="section-title">報價</div><input type="number" id="f-price" placeholder="NT$"></div>
                 </div>
