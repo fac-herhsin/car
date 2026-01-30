@@ -100,7 +100,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 border-t-2 pt-10">
                     <div><div class="section-title">車輛規格</div><input type="text" id="f-vspec" list="vspecOptions"><datalist id="vspecOptions"></datalist></div>
                     <div><div class="section-title">需求數量</div><input type="number" id="f-vqty" value="1" min="1"></div>
-                    <div><div class="section-title">配合廠商</div><input type="text" id="f-vendor" placeholder="廠商名稱"></div>
+                    <div><div class="section-title">配合廠商</div><input type="text" id="f-vendor" list="vendorOptions" placeholder="廠商名稱">
+                            <datalist id="vendorOptions"></datalist></div>
                     <div><div class="section-title">報價</div><input type="number" id="f-price" placeholder="NT$"></div>
                 </div>
 
@@ -170,10 +171,20 @@
         }
 
         function updateDatalists() {
+            // 1. 更新客戶選單
             const cList = document.getElementById('clientOptions');
             if (cList) cList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱 || ''}">`).join('');
+    
+            // 2. 更新車型選單
             const vList = document.getElementById('vspecOptions');
             if (vList) vList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格 || ''}">`).join('');
+
+            // 3. 【新增這段】更新配合廠商選單
+            const venList = document.getElementById('vendorOptions');
+            if (venList) {
+            // 這裡會抓取您試算表「廠商資料」分頁裡的「廠商名稱」欄位
+            venList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || v.vendor || ''}">`).join('');
+            }
         }
 
         function handleClientLookup(val) {
