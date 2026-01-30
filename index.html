@@ -336,7 +336,7 @@
                 if (customMonth) return d.date.startsWith(customMonth);
                 return range === 'year' ? dDate.getFullYear() === now.getFullYear() : (dDate.getFullYear() === now.getFullYear() && (dDate.getMonth()+1) === (now.getMonth()+1));
             });
-            const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ '日期': fmtDate(d.date), '公司': d.company, '客戶': d.client, '廠商': d.vendor, '目的地': d.to_name, '報價': d.price })));
+            const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ '日期': fmtDate(d.date), '公司': d.company, '客戶': d.client, '廠商': d.vendor, '目的地': d.to_name, '報價': d.price, '備註': d.notes })));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "報表");
             XLSX.writeFile(wb, `報表_${customMonth || range}.xlsx`);
@@ -359,6 +359,7 @@
             document.getElementById('p-vqty').innerText = d.vqty || "1";
             document.getElementById('p-vendor').innerText = d.vendor || "自行派車"; 
             document.getElementById('p-price').innerText = d.price ? `$${Number(d.price).toLocaleString()}` : "$0";
+            document.getElementById('p-notes').innerText = d.notes || "";
             document.getElementById('p-cargo').innerHTML = d.cargo.map(c => `<tr><td class="border-2 border-black p-2">${c.n}</td><td class="border-2 border-black p-2 text-center">${c.q}${c.u}</td></tr>`).join('');
             window.print();
         }
