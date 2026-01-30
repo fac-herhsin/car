@@ -98,10 +98,21 @@
                 <div><div class="section-title">備註事項</div><textarea id="f-notes" placeholder="備註內容..."></textarea></div>
 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 border-t-2 pt-10">
-                    <div><div class="section-title">車輛規格</div><input type="text" id="f-vspec" list="vspecOptions" onfocus="this.value=''"><datalist id="vspecOptions"></datalist></div>
+                    <div>
+                        <div class="section-title">
+                        車輛規格 <span onclick="openSetting('vehicles')" style="color:#2563eb; cursor:pointer; font-size: 0.8em; margin-left: 8px;">(管理)</span>
+                        </div>
+                        <input type="text" id="f-vspec" list="vspecOptions" onfocus="this.value=''">
+                        <datalist id="vspecOptions"></datalist>
+                    </div>
                     <div><div class="section-title">需求數量</div><input type="number" id="f-vqty" value="1" min="1"></div>
-                    <div><div class="section-title">配合廠商</div><input type="text" id="f-vendor" list="vendorOptions" onfocus="this.value=''" placeholder="廠商名稱">
-                            <datalist id="vendorOptions"></datalist></div>
+                    <div>
+                        <div class="section-title">
+                        配合廠商 <span onclick="openSetting('vendors')" style="color:#2563eb; cursor:pointer; font-size: 0.8em; margin-left: 8px;">(管理)</span>
+                        </div>
+                        <input type="text" id="f-vendor" list="vendorOptions" onfocus="this.value=''" placeholder="廠商名稱">
+                        <datalist id="vendorOptions"></datalist>
+                    </div>
                     <div><div class="section-title">報價</div><input type="number" id="f-price" placeholder="NT$"></div>
                 </div>
 
@@ -141,7 +152,20 @@
             <div>會計簽名<br><br><br>__________</div>
         </div>
     </div>
-
+    <div id="settingModal" class="modal flex items-center justify-center p-4" style="display:none;">
+        <div class="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="settingTitle" class="text-2xl font-black">⚙️ 管理項目</h2>
+                <button onclick="closeSettingModal()" class="text-3xl">&times;</button>
+            </div>
+            <div id="settingList" class="space-y-3 mb-6 max-h-60 overflow-y-auto">
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="newItemInput" placeholder="輸入名稱..." class="flex-1 p-3 border rounded-xl">
+                <button onclick="addSettingItem()" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold">+ 新增</button>
+            </div>
+        </div>
+    </div>
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzxzJ2T-lgiVC9uAu5Q0FbDx4sLlYYnEIWwqnxobOGmbFCpMoMzpgrGYmt24OW-k3gCxA/exec";
         let rawData = [];
