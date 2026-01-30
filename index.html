@@ -356,6 +356,8 @@
             document.getElementById('p-addr').innerText = d.to_addr || "";
             document.getElementById('p-vspec').innerText = d.vspec || "";
             document.getElementById('p-vqty').innerText = d.vqty || "1";
+            document.getElementById('p-vendor').innerText = d.vendor || "自行派車"; 
+            document.getElementById('p-price').innerText = d.price ? `$${Number(d.price).toLocaleString()}` : "$0";
             document.getElementById('p-cargo').innerHTML = d.cargo.map(c => `<tr><td class="border-2 border-black p-2">${c.n}</td><td class="border-2 border-black p-2 text-center">${c.q}${c.u}</td></tr>`).join('');
             window.print();
         }
