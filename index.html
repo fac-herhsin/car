@@ -12,7 +12,25 @@
         .section-title { color: #1e40af; font-weight: 800; border-left: 6px solid #2563eb; padding-left: 1rem; margin: 1.5rem 0; display: flex; align-items: center; }
         .modal { display: none; position: fixed; z-index: 100; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
         input, select, textarea { border: 2px solid #e2e8f0; border-radius: 0.75rem; padding: 0.85rem; width: 100%; font-size: 1.1rem; }
-        @media print { .no-print { display: none !important; } #printArea { display: block !important; } }
+        @media print {
+            .no-print { display: none !important; }
+            #printArea { 
+                display: block !important; 
+                padding: 0 !important; 
+                margin: 0 !important;
+            }
+            /* 縮小表格儲存格的高度，讓表格更緊湊 */
+            #p-cargo td { 
+                padding: 4px 8px !important; 
+            }
+            /* 縮小網格行距，讓上半部資訊更集中 */
+            .grid-cols-2 { 
+                gap: 0.25rem !important; 
+                margin-bottom: 1rem !important; 
+            }
+            /* 強制移除瀏覽器預設頁首頁尾 */
+            @page { margin: 1cm; }
+        }
         #printArea { display: none; font-family: "標楷體", serif; }
     </style>
 </head>
