@@ -147,7 +147,14 @@
         let rawData = [];
         let masterData = { clients: [], vendors: [], vehicles: [] };
 
-        const fmtDate = (v) => (!v || v.toString().includes("1899")) ? "-" : new Date(v).toLocaleDateString('zh-TW').replace(/\//g, '-');
+        const fmtDate = (v) => {
+            if (!v || v.toString().includes("1899")) return "";
+            const d = new Date(v);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
         const fmtTime = (v) => (!v || !v.toString().includes("T")) ? v : v.split("T")[1].substring(0, 5);
 
         async function syncData() {
@@ -236,6 +243,8 @@
                         const el = document.getElementById('f-'+k);
                         if(el) el.value = d[k.replace(/-/g,'_')] || '';
                     });
+                    // 強制將讀取到的日期格式化為 YYYY-MM-DD 再填入
+                    if (d.date) document.getElementById('f-date').value = fmtDate(d.date);
                     document.getElementById('f-time').value = fmtTime(d.time);
                     if(d.cargo) d.cargo.forEach(c => addCargoRow(c.n, c.q, c.u));
                 }
