@@ -366,7 +366,74 @@
                 setTimeout(syncData, 1000);
             } catch (err) { alert("刪除失敗"); toggleLoading(false); }
         }
+        // --- 管理彈窗邏輯 (新增) ---
+        let currentSettingMode = ''; 
 
+        function openSetting(mode) {
+            currentSettingMode = mode;
+            const titleEl = document.getElementById('settingTitle');
+            if (titleEl) {
+                titleEl.innerText = mode === 'vehicles' ? '⚙️ 管理車輛規格' : '⚙️ 管理配合廠商';
+            }
+            renderSettingList();
+            document.getElementById('settingModal').style.display = 'flex';
+        }
+
+        function closeSettingModal() {
+            document.getElementById('settingModal').style.display = 'none';
+        }
+
+        function renderSettingList() {
+            const list = document.getElementById('settingList');
+            if (!list) return;
+            
+            // 根據模式決定顯示的資料來源
+            const data = currentSettingMode === 'vehicles' ? masterData.vehicles : masterData.vendors;
+            
+            list.innerHTML = data.map((item, index) => {
+                // 抓取對應的欄位名稱
+                const name = item['車輛規格'] || item['廠商名稱'] || item['vendor'] || '未命名項目';
+                return `
+                    <div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border mb-2">
+                        <span class="font-bold text-slate-700 text-lg">${name}</span>
+                        <button onclick="deleteSettingItem(${index})" class="text-rose-500 text-2xl font-bold px-2">&times;</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function addSettingItem() {
+            const input = document.getElementById('newItemInput');
+            const val = input.value.trim();
+            if (!val) return alert("請輸入名稱");
+    
+            toggleLoading(true);
+            try {
+                // 發送 POST 請求到 GAS 後端
+                await fetch(GAS_URL, { 
+                    method: 'POST', 
+                    mode: 'no-cors', 
+                    body: JSON.stringify({ 
+                        action: 'updateConfig', 
+                        type: currentSettingMode, 
+                        method: 'add', 
+                        value: val 
+                    }) 
+                });
+        
+                input.value = '';
+                // 延遲一下讓 GAS 寫入完成後再同步資料
+                setTimeout(async () => {
+                    await syncData(); 
+                    renderSettingList();
+                    toggleLoading(false);
+                }, 1500);
+            } catch (e) {
+                alert("新增失敗");
+                toggleLoading(false);
+            }
+        }
+        // --- 管理函數結束 ---
         document.addEventListener('DOMContentLoaded', syncData);
     </script>
 </body>
