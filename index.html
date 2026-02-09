@@ -391,6 +391,36 @@
                 setTimeout(syncData, 1000);
             } catch (err) { alert("刪除失敗"); toggleLoading(false); }
         }
+            async function approveOrder(id) {
+    const d = rawData.find(x => String(x.id) === String(id));
+    if (!d) return;
+    
+    const newStatus = !d.isApproved; 
+    const actionName = newStatus ? "覆核" : "取消覆核";
+
+    if (!confirm(`確定要${actionName}此筆單據？`)) return;
+
+    toggleLoading(true);
+    try {
+        await fetch(GAS_URL, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            body: JSON.stringify({ 
+                action: 'approve', 
+                data: { id: id, isApproved: newStatus } 
+            }) 
+        });
+        
+        setTimeout(() => {
+            syncData();
+            toggleLoading(false);
+        }, 1500);
+    } catch (err) { 
+        alert(actionName + "失敗"); 
+        toggleLoading(false); 
+    }
+}
+        
         // --- 管理彈窗邏輯 (新增) ---
         let currentSettingMode = ''; 
 
