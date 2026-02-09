@@ -200,7 +200,26 @@
             const dd = String(d.getDate()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}`;
         };
-        const fmtTime = (v) => (!v || !v.toString().includes("T")) ? v : v.split("T")[1].substring(0, 5);
+        const fmtTime = (v) => {
+    if (!v) return "";
+
+    // 情況 A: 如果是從試算表來的 Date 物件 (通常會包含 ":" 且 toString 後有時間資訊)
+    // 這是最常導致 00:00 的原因
+    if (v instanceof Date || (typeof v === 'object' && v.toString().includes(':'))) {
+        const d = new Date(v);
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
+
+    // 情況 B: 如果是 ISO 字串 (包含 "T")
+    if (v.toString().includes("T")) {
+        return v.split("T")[1].substring(0, 5);
+    }
+
+    // 情況 C: 如果已經是 "08:00" 字串，直接回傳前 5 碼
+    return v.toString().substring(0, 5);
+};
 
         async function syncData() {
             toggleLoading(true);
