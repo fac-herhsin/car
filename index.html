@@ -269,6 +269,7 @@
                             <button onclick="printOrder('${d.id}')" class="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all font-black text-xl shadow-sm">列印</button>
                             <button onclick="openModal('edit','${d.id}')" class="bg-blue-50 text-blue-600 px-5 py-3 rounded-2xl border border-blue-200 hover:bg-blue-600 hover:text-white transition-all font-black text-xl shadow-sm">編輯</button>
                             <button onclick="deleteOrder('${d.id}')" class="bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-black text-xl shadow-sm">刪除</button>
+                            <button onclick="approveOrder('${d.id}')" class="${d.isApproved ? 'bg-amber-100 text-amber-600 border-amber-300' : 'bg-slate-50 text-slate-400 border-slate-200'} px-5 py-3 rounded-2xl border hover:bg-amber-600 hover:text-white transition-all font-black text-xl shadow-sm"> ${d.isApproved ? '<i class="fas fa-check-double mr-1"></i>已覆核' : '<i class="fas fa-check mr-1"></i>覆核'}</button>
                         </div>
                     </td>
                 </tr>`).join('');
