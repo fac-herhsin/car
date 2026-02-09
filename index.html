@@ -201,24 +201,32 @@
             return `${yyyy}-${mm}-${dd}`;
         };
         const fmtTime = (v) => {
-    if (!v) return "";
+    if (v === undefined || v === null || v === "") return "";
 
-    // 情況 A: 如果是從試算表來的 Date 物件 (通常會包含 ":" 且 toString 後有時間資訊)
-    // 這是最常導致 00:00 的原因
-    if (v instanceof Date || (typeof v === 'object' && v.toString().includes(':'))) {
+    try {
+        // 1. 如果已經是 HH:mm 格式的字串 (例如 "08:00")
+        if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) {
+            return v.substring(0, 5);
+        }
+
+        // 2. 處理 Date 物件或包含時間資訊的字串
         const d = new Date(v);
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        return `${hh}:${mm}`;
+        
+        // 檢查是否為有效的日期
+        if (!isNaN(d.getTime())) {
+            // 關鍵修正：處理 Google 試算表 1899 年的時間偏差
+            // 如果小時是 0 且分鐘也是 0，但原始資料明明有值，
+            // 通常是解析到了日期而非時間，這裡強制抓取本地時間。
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${hh}:${mm}`;
+        }
+        
+        return v.toString(); // 萬一都失敗，至少回傳原始文字
+    } catch (e) {
+        console.error("時間格式解析錯誤:", e, v);
+        return v.toString();
     }
-
-    // 情況 B: 如果是 ISO 字串 (包含 "T")
-    if (v.toString().includes("T")) {
-        return v.split("T")[1].substring(0, 5);
-    }
-
-    // 情況 C: 如果已經是 "08:00" 字串，直接回傳前 5 碼
-    return v.toString().substring(0, 5);
 };
 
         async function syncData() {
