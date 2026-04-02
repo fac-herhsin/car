@@ -68,8 +68,9 @@
 
         <div class="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-slate-100">
             <table class="w-full text-left">
-                <thead class="bg-slate-50 border-b-2"><tr class="text-slate-500 font-black text-sm uppercase"><th class="p-6">公司/時間</th><th class="p-6">客戶/行程</th><th class="p-6 text-right">報價</th><th class="p-6 text-center">操作</th></tr></thead>
-                <tbody id="dataTable" class="divide-y-2 divide-slate-50">
+                <thead class="bg-slate-50 border-b-2"><tr class="text-slate-500 font-black text-sm uppercase"><th class="p-6 cursor-pointer hover:bg-slate-100 transition-colors" onclick="toggleSort()">
+                    公司/時間 <span id="sort-icon" class="ml-1 text-blue-500">▼</span></th><th class="p-6">客戶/行程</th><th class="p-6 text-right">報價</th><th class="p-6 text-center">操作</th></tr></thead>
+                      <tbody id="dataTable" class="divide-y-2 divide-slate-50">
                     <tr><td colspan="4" class="p-10 text-center font-bold">尚未同步資料...</td></tr>
                 </tbody>
             </table>
@@ -196,6 +197,17 @@
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzxzJ2T-lgiVC9uAu5Q0FbDx4sLlYYnEIWwqnxobOGmbFCpMoMzpgrGYmt24OW-k3gCxA/exec";
         let rawData = [];
+        // --- 新增排序控制變數 ---
+        let isDescending = true; // 預設降冪 (最新的在上面)
+
+        function toggleSort() {
+            isDescending = !isDescending;
+            // 更新圖示
+            const icon = document.getElementById('sort-icon');
+            icon.innerText = isDescending ? '▼' : '▲';
+            // 重新執行過濾與渲染
+            filterData();
+        }
         let masterData = { clients: [], vendors: [], vehicles: [] };
 
         const fmtDate = (v) => {
@@ -281,11 +293,28 @@
             const clientQ = document.getElementById('searchClient').value.toLowerCase();
             const monthQ = document.getElementById('searchMonth').value;
             const tbody = document.getElementById('dataTable');
-            const filtered = rawData.filter(d => {
+            
+            // 1. 先進行過濾
+            let filtered = rawData.filter(d => {
                 const matchClient = (d.client || "").toLowerCase().includes(clientQ);
                 const matchMonth = !monthQ || d.date.startsWith(monthQ);
                 return matchClient && matchMonth;
             });
+        
+            // 2. 【核心修改】新增排序邏輯
+            filtered.sort((a, b) => {
+                // 合併日期與時間進行精確比較
+                const dateTimeA = new Date(`${fmtDate(a.date)} ${fmtTime(a.time)}`).getTime();
+                const dateTimeB = new Date(`${fmtDate(b.date)} ${fmtTime(b.time)}`).getTime();
+                
+                if (isDescending) {
+                    return dateTimeB - dateTimeA; // 新 -> 舊
+                } else {
+                    return dateTimeA - dateTimeB; // 舊 -> 新
+                }
+            });
+        
+            // 3. 渲染畫面 (原本的 map 邏輯不變)
             tbody.innerHTML = filtered.map(d => `
                 <tr class="hover:bg-slate-50 font-bold border-b-2">
                     <td class="p-6">
