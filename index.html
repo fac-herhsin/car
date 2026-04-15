@@ -103,10 +103,23 @@
                         <div><label class="text-sm font-black">客戶簡稱 (連動)</label><input type="text" id="f-client" list="clientOptions" onfocus="this.value=''" oninput="handleClientLookup(this.value)"><datalist id="clientOptions"></datalist></div>
                         <div><label class="text-sm font-black">申請人</label><input type="text" id="f-applicant"></div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                        <div><label class="text-sm font-black text-emerald-600">起點 (FROM)</label><input type="text" id="f-from" value="公司"></div>
-                        <div><label class="text-sm font-black text-rose-500">目的地名稱 (TO)</label><input type="text" id="f-to-name" placeholder="工地/地點"></div>
-                        <div><label class="text-sm font-black text-blue-500">中繼點 C</label><input type="text" id="f-stop-c" placeholder="選填"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                        <div>
+                            <label class="text-sm font-black text-emerald-600">起點 (FROM)</label>
+                          <input type="text" id="f-from" value="公司">
+                        </div>
+                        <div>
+                            <label class="text-sm font-black text-rose-500">目的地名稱 (TO)</label>
+                            <input type="text" id="f-to-name" placeholder="工地/地點">
+                        </div>
+                        <div>
+                            <label class="text-sm font-black text-blue-500">中繼點 C</label>
+                            <input type="text" id="f-stop-c" placeholder="選填">
+                        </div>
+                        <div>
+                            <label class="text-sm font-black text-amber-600">里程數 (km)</label>
+                            <input type="number" id="f-distance" step="0.1" placeholder="自動計算/手動輸入">
+                        </div>
                     </div>
                     <textarea id="f-to-addr" rows="2" placeholder="詳細地址 (客戶資料庫自動帶入)" class="mt-6"></textarea>
                 </div>
@@ -320,7 +333,7 @@
         if (id) {
             const d = rawData.find(x => String(x.id) === String(id));
             if (d) {
-                const fields = ['company','date','from','to-name','stop-c','to-addr','client','applicant','l','w','h','wt','notes','vendor','price','vspec','vqty'];
+                const fields = ['company','date','from','to-name','stop-c','to-addr','client','applicant','l','w','h','wt','notes','vendor','price','vspec','vqty','distance'];
                 fields.forEach(k => {
                     const el = document.getElementById('f-'+k);
                     if(el) el.value = d[k.replace(/-/g,'_')] || '';
@@ -369,6 +382,7 @@
             vendor: document.getElementById('f-vendor').value,
             price: document.getElementById('f-price').value,
             notes: document.getElementById('f-notes').value,
+            distance: document.getElementById('f-distance').value,
             cargo: cargo
         };
         toggleLoading(true);
