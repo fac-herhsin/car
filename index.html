@@ -324,6 +324,7 @@
                     <td class="p-6">
                         <div class="text-2xl text-slate-800">${d.client || '無'}</div>
                         <div class="text-sm text-emerald-600">${d.from} ⮕ ${d.to_name || ''}</div>
+                        <div class="text-sm text-blue-500 font-bold italic">${d.distance ? '全程約 ' + d.distance + ' km' : ''}</div>
                     </td>
                     <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
                     <td class="p-6 text-center">
@@ -396,7 +397,8 @@
                 vendor: document.getElementById('f-vendor').value,
                 price: document.getElementById('f-price').value,
                 notes: document.getElementById('f-notes').value,
-                cargo: cargo
+                cargo: cargo,
+                distance: ""
             };
             toggleLoading(true);
             try {
