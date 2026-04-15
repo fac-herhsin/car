@@ -68,8 +68,14 @@
 
         <div class="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-slate-100">
             <table class="w-full text-left">
-                <thead class="bg-slate-50 border-b-2"><tr class="text-slate-500 font-black text-sm uppercase"><th class="p-6 cursor-pointer hover:bg-slate-100 transition-colors" onclick="toggleSort()">
-                    公司/時間 <span id="sort-icon" class="ml-1 text-blue-500">▼</span></th><th class="p-6">客戶/行程</th><th class="p-6 text-right">報價</th><th class="p-6 text-center">操作</th></tr></thead>
+                <thead class="bg-slate-50 border-b-2">
+                    <tr class="text-slate-500 font-black text-sm uppercase">
+                    <th class="p-6 cursor-pointer hover:bg-slate-100 transition-colors" onclick="toggleSort()">公司/時間 <span id="sort-icon" class="ml-1 text-blue-500">▼</span></th>
+                        <th class="p-6">客戶/行程</th>
+                        <th class="p-6 text-right">報價</th>
+                        <th class="p-6 text-center">公里數</th>
+                        <th class="p-6 text-center">操作</th>
+                    </tr></thead>
                       <tbody id="dataTable" class="divide-y-2 divide-slate-50">
                     <tr><td colspan="4" class="p-10 text-center font-bold">尚未同步資料...</td></tr>
                 </tbody>
@@ -195,365 +201,279 @@
         </div>
     </div>
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbzxzJ2T-lgiVC9uAu5Q0FbDx4sLlYYnEIWwqnxobOGmbFCpMoMzpgrGYmt24OW-k3gCxA/exec";
-        let rawData = [];
-        // --- 新增排序控制變數 ---
-        let isDescending = true; // 預設降冪 (最新的在上面)
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzxzJ2T-lgiVC9uAu5Q0FbDx4sLlYYnEIWwqnxobOGmbFCpMoMzpgrGYmt24OW-k3gCxA/exec";
+    let rawData = [];
+    let isDescending = true; 
+    let masterData = { clients: [], vendors: [], vehicles: [] };
 
-        function toggleSort() {
-            isDescending = !isDescending;
-            // 更新圖示
-            const icon = document.getElementById('sort-icon');
-            icon.innerText = isDescending ? '▼' : '▲';
-            // 重新執行過濾與渲染
-            filterData();
-        }
-        let masterData = { clients: [], vendors: [], vehicles: [] };
-
-        const fmtDate = (v) => {
-            if (!v || v.toString().includes("1899")) return "";
-            const d = new Date(v);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        };
-        const fmtTime = (v) => {
-    if (v === undefined || v === null || v === "") return "";
-
-    try {
-        // 1. 如果已經是 HH:mm 格式的字串 (例如 "08:00")
-        if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) {
-            return v.substring(0, 5);
-        }
-
-        // 2. 處理 Date 物件或包含時間資訊的字串
+    const fmtDate = (v) => {
+        if (!v || v.toString().includes("1899")) return "";
         const d = new Date(v);
-        
-        // 檢查是否為有效的日期
-        if (!isNaN(d.getTime())) {
-            // 關鍵修正：處理 Google 試算表 1899 年的時間偏差
-            // 如果小時是 0 且分鐘也是 0，但原始資料明明有值，
-            // 通常是解析到了日期而非時間，這裡強制抓取本地時間。
-            const hh = String(d.getHours()).padStart(2, '0');
-            const mm = String(d.getMinutes()).padStart(2, '0');
-            return `${hh}:${mm}`;
-        }
-        
-        return v.toString(); // 萬一都失敗，至少回傳原始文字
-    } catch (e) {
-        console.error("時間格式解析錯誤:", e, v);
-        return v.toString();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const fmtTime = (v) => {
+        if (v === undefined || v === null || v === "") return "";
+        try {
+            if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) return v.substring(0, 5);
+            const d = new Date(v);
+            if (!isNaN(d.getTime())) {
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                return `${hh}:${mm}`;
+            }
+            return v.toString();
+        } catch (e) { return v.toString(); }
+    };
+
+    function toggleSort() {
+        isDescending = !isDescending;
+        document.getElementById('sort-icon').innerText = isDescending ? '▼' : '▲';
+        filterData();
     }
-};
 
-        async function syncData() {
-            toggleLoading(true);
-            try {
-                const response = await fetch(GAS_URL);
-                const res = await response.json();
-                masterData.clients = res.clients || [];
-                masterData.vendors = res.vendors || [];
-                masterData.vehicles = res.vehicles || [];
-                rawData = (res.records || []).map(r => ({
-                    ...r,
-                    cargo: typeof r.cargo === 'string' ? JSON.parse(r.cargo) : (r.cargo || [])
-                }));
-                updateDatalists();
-                filterData();
-            } catch (e) { 
-                console.error(e);
-                alert("同步失敗！"); 
-            } finally { toggleLoading(false); }
-        }
+    async function syncData() {
+        toggleLoading(true);
+        try {
+            const response = await fetch(GAS_URL);
+            const res = await response.json();
+            masterData.clients = res.clients || [];
+            masterData.vendors = res.vendors || [];
+            masterData.vehicles = res.vehicles || [];
+            rawData = (res.records || []).map(r => ({
+                ...r,
+                cargo: typeof r.cargo === 'string' ? JSON.parse(r.cargo) : (r.cargo || [])
+            }));
+            updateDatalists();
+            filterData();
+        } catch (e) { 
+            console.error(e);
+            alert("同步失敗！"); 
+        } finally { toggleLoading(false); }
+    }
 
-        function updateDatalists() {
-            // 1. 更新客戶選單
-            const cList = document.getElementById('clientOptions');
-            if (cList) cList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱 || ''}">`).join('');
-    
-            // 2. 更新車型選單
-            const vList = document.getElementById('vspecOptions');
-            if (vList) vList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格 || ''}">`).join('');
+    function updateDatalists() {
+        const cList = document.getElementById('clientOptions');
+        if (cList) cList.innerHTML = masterData.clients.map(c => `<option value="${c.客戶簡稱 || ''}">`).join('');
+        const vList = document.getElementById('vspecOptions');
+        if (vList) vList.innerHTML = masterData.vehicles.map(v => `<option value="${v.車輛規格 || ''}">`).join('');
+        const venList = document.getElementById('vendorOptions');
+        if (venList) venList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || v.vendor || ''}">`).join('');
+    }
 
-            // 3. 【新增這段】更新配合廠商選單
-            const venList = document.getElementById('vendorOptions');
-            if (venList) {
-            // 這裡會抓取您試算表「廠商資料」分頁裡的「廠商名稱」欄位
-            venList.innerHTML = masterData.vendors.map(v => `<option value="${v.廠商名稱 || v.vendor || ''}">`).join('');
-            }
-        }
+    function handleClientLookup(val) {
+        const c = masterData.clients.find(x => x.客戶簡稱 === val);
+        if (c) document.getElementById('f-to-addr').value = c.下貨地址 || '';
+    }
 
-        function handleClientLookup(val) {
-            const c = masterData.clients.find(x => x.客戶簡稱 === val);
-            if (c) document.getElementById('f-to-addr').value = c.下貨地址 || '';
-        }
-
-        function filterData() {
-            const clientQ = document.getElementById('searchClient').value.toLowerCase();
-            const monthQ = document.getElementById('searchMonth').value;
-            const tbody = document.getElementById('dataTable');
-            
-            // 1. 先進行過濾
-            let filtered = rawData.filter(d => {
-                const matchClient = (d.client || "").toLowerCase().includes(clientQ);
-                const matchMonth = !monthQ || d.date.startsWith(monthQ);
-                return matchClient && matchMonth;
-            });
+    function filterData() {
+        const clientQ = document.getElementById('searchClient').value.toLowerCase();
+        const monthQ = document.getElementById('searchMonth').value;
+        const tbody = document.getElementById('dataTable');
         
-            // 2. 【核心修改】新增排序邏輯
-            filtered.sort((a, b) => {
-                // 合併日期與時間進行精確比較
-                const dateTimeA = new Date(`${fmtDate(a.date)} ${fmtTime(a.time)}`).getTime();
-                const dateTimeB = new Date(`${fmtDate(b.date)} ${fmtTime(b.time)}`).getTime();
-                
-                if (isDescending) {
-                    return dateTimeB - dateTimeA; // 新 -> 舊
-                } else {
-                    return dateTimeA - dateTimeB; // 舊 -> 新
-                }
-            });
-        
-            // 3. 渲染畫面 (原本的 map 邏輯不變)
-            tbody.innerHTML = filtered.map(d => `
-                <tr class="hover:bg-slate-50 font-bold border-b-2">
-                    <td class="p-6">
-                        <div class="text-2xl font-black ${d.company === '何鑫實業' ? 'text-blue-600' : 'text-orange-600'}">${d.company}</div>
-                        <div class="text-lg text-slate-500">${fmtDate(d.date)} | ${fmtTime(d.time)}</div>
-                    </td>
-                    <td class="p-6">
-                        <div class="text-2xl text-slate-800">${d.client || '無'}</div>
-                        <div class="text-sm text-emerald-600">${d.from} ⮕ ${d.to_name || ''}</div>
-                        <div class="text-sm text-blue-500 font-bold italic">${d.distance ? '全程約 ' + d.distance + ' km' : ''}</div>
-                    </td>
-                    <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
-                    <td class="p-6 text-center">
-                        <div class="flex gap-4 justify-center items-center">
-                            <button onclick="printOrder('${d.id}')" class="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all font-black text-xl shadow-sm">列印</button>
-                            <button onclick="openModal('edit','${d.id}')" class="bg-blue-50 text-blue-600 px-5 py-3 rounded-2xl border border-blue-200 hover:bg-blue-600 hover:text-white transition-all font-black text-xl shadow-sm">編輯</button>
-                            <button onclick="deleteOrder('${d.id}')" class="bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-black text-xl shadow-sm">刪除</button>
-                            <button onclick="approveOrder('${d.id}')" class="${d.isApproved ? 'bg-amber-100 text-amber-600 border-amber-300' : 'bg-slate-50 text-slate-400 border-slate-200'} px-5 py-3 rounded-2xl border hover:bg-amber-600 hover:text-white transition-all font-black text-xl shadow-sm"> ${d.isApproved ? '<i class="fas fa-check-double mr-1"></i>已覆核' : '<i class="fas fa-check mr-1"></i>覆核'}</button>
-                        </div>
-                    </td>
-                </tr>`).join('');
-        }
-
-        function openModal(mode, id = null) {
-            const form = document.getElementById('dispatchForm');
-            form.reset();
-            document.getElementById('cargoList').innerHTML = '';
-            document.getElementById('editId').value = id || '';
-            document.getElementById('modalTitle').innerText = id ? "編輯紀錄" : "新增派車";
-            if (id) {
-                const d = rawData.find(x => String(x.id) === String(id));
-                if (d) {
-                    const fields = ['company','date','from','to-name','stop-c','to-addr','client','applicant','l','w','h','wt','notes','vendor','price','vspec','vqty'];
-                    fields.forEach(k => {
-                        const el = document.getElementById('f-'+k);
-                        if(el) el.value = d[k.replace(/-/g,'_')] || '';
-                    });
-                    // 強制將讀取到的日期格式化為 YYYY-MM-DD 再填入
-                    if (d.date) document.getElementById('f-date').value = fmtDate(d.date);
-                    document.getElementById('f-time').value = fmtTime(d.time);
-                    if(d.cargo) d.cargo.forEach(c => addCargoRow(c.n, c.q, c.u));
-                }
-            } else { addCargoRow(); }
-            document.getElementById('formModal').style.display = 'flex';
-        }
-
-        function addCargoRow(n='', q='1', u='式') {
-            document.getElementById('cargoList').insertAdjacentHTML('beforeend', `
-            <div class="flex gap-4 items-center">
-                <input type="text" name="cn[]" value="${n}" placeholder="品項" class="flex-[4]">
-                <input type="number" name="cq[]" value="${q}" class="flex-1 text-center">
-                <input type="text" name="cu[]" value="${u}" class="flex-1 text-center">
-                <button type="button" onclick="this.parentElement.remove()" class="text-rose-400 text-3xl">&times;</button>
-            </div>`);
-        }
-
-        document.getElementById('dispatchForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const cargo = []; 
-            const ns = document.getElementsByName('cn[]');
-            const qs = document.getElementsByName('cq[]');
-            const us = document.getElementsByName('cu[]');
-            for (let i = 0; i < ns.length; i++) {
-                if (ns[i].value) cargo.push({ n: ns[i].value, q: qs[i].value, u: us[i].value });
-            }
-            const data = {
-                id: document.getElementById('editId').value || Date.now().toString(),
-                company: document.getElementById('f-company').value,
-                date: document.getElementById('f-date').value,
-                time: document.getElementById('f-time').value,
-                client: document.getElementById('f-client').value,
-                applicant: document.getElementById('f-applicant').value,
-                from: document.getElementById('f-from').value,
-                to_name: document.getElementById('f-to-name').value,
-                to_addr: document.getElementById('f-to-addr').value,
-                stop_c: document.getElementById('f-stop-c').value,
-                vspec: document.getElementById('f-vspec').value,
-                vqty: document.getElementById('f-vqty').value,
-                l: document.getElementById('f-l').value, w: document.getElementById('f-w').value, h: document.getElementById('f-h').value, wt: document.getElementById('f-wt').value,
-                vendor: document.getElementById('f-vendor').value,
-                price: document.getElementById('f-price').value,
-                notes: document.getElementById('f-notes').value,
-                cargo: cargo,
-                distance: ""
-            };
-            toggleLoading(true);
-            try {
-                await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'save', data }) });
-                setTimeout(() => { syncData(); closeModal(); }, 1000);
-            } catch (err) { alert("儲存失敗"); toggleLoading(false); }
-        };
-
-        function closeModal() { document.getElementById('formModal').style.display='none'; }
-        function toggleLoading(s) { document.getElementById('loading').style.display = s?'flex':'none'; }
-
-        function exportExcel() {
-            const range = document.getElementById('exportRange').value;
-            const customMonth = document.getElementById('searchMonth').value;
-            const now = new Date();
-            const filtered = rawData.filter(d => {
-                const dDate = new Date(d.date);
-                if (customMonth) return d.date.startsWith(customMonth);
-                return range === 'year' ? dDate.getFullYear() === now.getFullYear() : (dDate.getFullYear() === now.getFullYear() && (dDate.getMonth()+1) === (now.getMonth()+1));
-            });
-            const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ '日期': fmtDate(d.date), '公司': d.company, '客戶': d.client, '廠商': d.vendor, '目的地': d.to_name, '報價': d.price, '備註': d.notes })));
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "報表");
-            XLSX.writeFile(wb, `報表_${customMonth || range}.xlsx`);
-        }
-
-        function printOrder(id) {
-            const d = rawData.find(x => String(x.id) === String(id));
-            if (!d) return alert("找不到資料");
-            const clientInfo = masterData.clients.find(c => c.客戶簡稱 === d.client) || {};
-            document.getElementById('p-company').innerText = d.company + " 派車申請單";
-            document.getElementById('p-date').innerText = fmtDate(d.date);
-            document.getElementById('p-time').innerText = fmtTime(d.time);
-            document.getElementById('p-client').innerText = d.client || "";
-            document.getElementById('p-contact').innerText = clientInfo.聯絡人 || "__________";
-            document.getElementById('p-phone').innerText = clientInfo.電話 || "__________";
-            document.getElementById('p-applicant').innerText = d.applicant || "";
-            document.getElementById('p-route').innerText = `${d.from} ⮕ ${d.to_name}`;
-            document.getElementById('p-addr').innerText = d.to_addr || "";
-            document.getElementById('p-vspec').innerText = d.vspec || "";
-            document.getElementById('p-vqty').innerText = d.vqty || "1";
-            document.getElementById('p-vendor').innerText = d.vendor || "自行派車"; 
-            document.getElementById('p-price').innerText = d.price ? `$${Number(d.price).toLocaleString()}` : "$0";
-            document.getElementById('p-notes').innerText = d.notes || "";
-            document.getElementById('p-cargo').innerHTML = d.cargo.map(c => `<tr><td class="border-2 border-black p-2">${c.n}</td><td class="border-2 border-black p-2 text-center">${c.q}${c.u}</td></tr>`).join('');
-            window.print();
-        }
-
-        async function deleteOrder(id) {
-            if (!confirm("確定要刪除？")) return;
-            toggleLoading(true);
-            try {
-                await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', data: { id } }) });
-                setTimeout(syncData, 1000);
-            } catch (err) { alert("刪除失敗"); toggleLoading(false); }
-        }
-            async function approveOrder(id) {
-    const d = rawData.find(x => String(x.id) === String(id));
-    if (!d) return;
-    
-    const newStatus = !d.isApproved; 
-    const actionName = newStatus ? "覆核" : "取消覆核";
-
-    if (!confirm(`確定要${actionName}此筆單據？`)) return;
-
-    toggleLoading(true);
-    try {
-        await fetch(GAS_URL, { 
-            method: 'POST', 
-            mode: 'no-cors', 
-            body: JSON.stringify({ 
-                action: 'approve', 
-                data: { id: id, isApproved: newStatus } 
-            }) 
+        let filtered = rawData.filter(d => {
+            const matchClient = (d.client || "").toLowerCase().includes(clientQ);
+            const matchMonth = !monthQ || d.date.startsWith(monthQ);
+            return matchClient && matchMonth;
         });
-        
-        setTimeout(() => {
-            syncData();
-            toggleLoading(false);
-        }, 1500);
-    } catch (err) { 
-        alert(actionName + "失敗"); 
-        toggleLoading(false); 
-    }
-}
-        
-        // --- 管理彈窗邏輯 (新增) ---
-        let currentSettingMode = ''; 
 
-        function openSetting(mode) {
-            currentSettingMode = mode;
-            const titleEl = document.getElementById('settingTitle');
-            if (titleEl) {
-                titleEl.innerText = mode === 'vehicles' ? '⚙️ 管理車輛規格' : '⚙️ 管理配合廠商';
-            }
-            renderSettingList();
-            document.getElementById('settingModal').style.display = 'flex';
-        }
+        filtered.sort((a, b) => {
+            const dateTimeA = new Date(`${fmtDate(a.date)} ${fmtTime(a.time)}`).getTime();
+            const dateTimeB = new Date(`${fmtDate(b.date)} ${fmtTime(b.time)}`).getTime();
+            return isDescending ? dateTimeB - dateTimeA : dateTimeA - dateTimeB;
+        });
 
-        function closeSettingModal() {
-            document.getElementById('settingModal').style.display = 'none';
-        }
-
-        function renderSettingList() {
-            const list = document.getElementById('settingList');
-            if (!list) return;
-            
-            // 根據模式決定顯示的資料來源
-            const data = currentSettingMode === 'vehicles' ? masterData.vehicles : masterData.vendors;
-            
-            list.innerHTML = data.map((item, index) => {
-                // 抓取對應的欄位名稱
-                const name = item['車輛規格'] || item['廠商名稱'] || item['vendor'] || '未命名項目';
-                return `
-                    <div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border mb-2">
-                        <span class="font-bold text-slate-700 text-lg">${name}</span>
-                        <button onclick="deleteSettingItem(${index})" class="text-rose-500 text-2xl font-bold px-2">&times;</button>
+        tbody.innerHTML = filtered.map(d => `
+            <tr class="hover:bg-slate-50 font-bold border-b-2">
+                <td class="p-6">
+                    <div class="text-2xl font-black ${d.company === '何鑫實業' ? 'text-blue-600' : 'text-orange-600'}">${d.company}</div>
+                    <div class="text-lg text-slate-500">${fmtDate(d.date)} | ${fmtTime(d.time)}</div>
+                </td>
+                <td class="p-6">
+                    <div class="text-2xl text-slate-800">${d.client || '無'}</div>
+                    <div class="text-sm text-emerald-600">${d.from} ⮕ ${d.to_name || ''}</div>
+                </td>
+                <td class="p-6 text-right text-2xl font-black">$${(Number(d.price) || 0).toLocaleString()}</td>
+                <td class="p-6 text-center">
+                    <div class="text-xl font-black text-blue-600">${d.distance && d.distance !== "計算失敗" ? d.distance + ' km' : '--'}</div>
+                </td>
+                <td class="p-6 text-center">
+                    <div class="flex gap-4 justify-center items-center">
+                        <button onclick="printOrder('${d.id}')" class="bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all font-black text-xl shadow-sm">列印</button>
+                        <button onclick="openModal('edit','${d.id}')" class="bg-blue-50 text-blue-600 px-5 py-3 rounded-2xl border border-blue-200 hover:bg-blue-600 hover:text-white transition-all font-black text-xl shadow-sm">編輯</button>
+                        <button onclick="deleteOrder('${d.id}')" class="bg-rose-50 text-rose-600 px-5 py-3 rounded-2xl border border-rose-200 hover:bg-rose-600 hover:text-white transition-all font-black text-xl shadow-sm">刪除</button>
+                        <button onclick="approveOrder('${d.id}')" class="${d.isApproved ? 'bg-amber-100 text-amber-600 border-amber-300' : 'bg-slate-50 text-slate-400 border-slate-200'} px-5 py-3 rounded-2xl border hover:bg-amber-600 hover:text-white transition-all font-black text-xl shadow-sm"> ${d.isApproved ? '<i class="fas fa-check-double mr-1"></i>已覆核' : '<i class="fas fa-check mr-1"></i>覆核'}</button>
                     </div>
-                `;
-            }).join('');
-        }
+                </td>
+            </tr>`).join('');
+    }
 
-        async function addSettingItem() {
-            const input = document.getElementById('newItemInput');
-            const val = input.value.trim();
-            if (!val) return alert("請輸入名稱");
-    
-            toggleLoading(true);
-            try {
-                // 發送 POST 請求到 GAS 後端
-                await fetch(GAS_URL, { 
-                    method: 'POST', 
-                    mode: 'no-cors', 
-                    body: JSON.stringify({ 
-                        action: 'updateConfig', 
-                        type: currentSettingMode, 
-                        method: 'add', 
-                        value: val 
-                    }) 
+    function openModal(mode, id = null) {
+        const form = document.getElementById('dispatchForm');
+        form.reset();
+        document.getElementById('cargoList').innerHTML = '';
+        document.getElementById('editId').value = id || '';
+        document.getElementById('modalTitle').innerText = id ? "編輯紀錄" : "新增派車";
+        if (id) {
+            const d = rawData.find(x => String(x.id) === String(id));
+            if (d) {
+                const fields = ['company','date','from','to-name','stop-c','to-addr','client','applicant','l','w','h','wt','notes','vendor','price','vspec','vqty'];
+                fields.forEach(k => {
+                    const el = document.getElementById('f-'+k);
+                    if(el) el.value = d[k.replace(/-/g,'_')] || '';
                 });
-        
-                input.value = '';
-                // 延遲一下讓 GAS 寫入完成後再同步資料
-                setTimeout(async () => {
-                    await syncData(); 
-                    renderSettingList();
-                    toggleLoading(false);
-                }, 1500);
-            } catch (e) {
-                alert("新增失敗");
-                toggleLoading(false);
+                if (d.date) document.getElementById('f-date').value = fmtDate(d.date);
+                document.getElementById('f-time').value = fmtTime(d.time);
+                if(d.cargo) d.cargo.forEach(c => addCargoRow(c.n, c.q, c.u));
             }
+        } else { addCargoRow(); }
+        document.getElementById('formModal').style.display = 'flex';
+    }
+
+    function addCargoRow(n='', q='1', u='式') {
+        document.getElementById('cargoList').insertAdjacentHTML('beforeend', `
+        <div class="flex gap-4 items-center">
+            <input type="text" name="cn[]" value="${n}" placeholder="品項" class="flex-[4]">
+            <input type="number" name="cq[]" value="${q}" class="flex-1 text-center">
+            <input type="text" name="cu[]" value="${u}" class="flex-1 text-center">
+            <button type="button" onclick="this.parentElement.remove()" class="text-rose-400 text-3xl">&times;</button>
+        </div>`);
+    }
+
+    document.getElementById('dispatchForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const cargo = []; 
+        const ns = document.getElementsByName('cn[]');
+        const qs = document.getElementsByName('cq[]');
+        const us = document.getElementsByName('cu[]');
+        for (let i = 0; i < ns.length; i++) {
+            if (ns[i].value) cargo.push({ n: ns[i].value, q: qs[i].value, u: us[i].value });
         }
-        // --- 管理函數結束 ---
-        document.addEventListener('DOMContentLoaded', syncData);
-    </script>
+        const data = {
+            id: document.getElementById('editId').value || Date.now().toString(),
+            company: document.getElementById('f-company').value,
+            date: document.getElementById('f-date').value,
+            time: document.getElementById('f-time').value,
+            client: document.getElementById('f-client').value,
+            applicant: document.getElementById('f-applicant').value,
+            from: document.getElementById('f-from').value,
+            to_name: document.getElementById('f-to-name').value,
+            to_addr: document.getElementById('f-to-addr').value,
+            stop_c: document.getElementById('f-stop-c').value,
+            vspec: document.getElementById('f-vspec').value,
+            vqty: document.getElementById('f-vqty').value,
+            l: document.getElementById('f-l').value, w: document.getElementById('f-w').value, h: document.getElementById('f-h').value, wt: document.getElementById('f-wt').value,
+            vendor: document.getElementById('f-vendor').value,
+            price: document.getElementById('f-price').value,
+            notes: document.getElementById('f-notes').value,
+            cargo: cargo
+        };
+        toggleLoading(true);
+        try {
+            await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'save', data }) });
+            setTimeout(() => { syncData(); closeModal(); }, 1500);
+        } catch (err) { alert("儲存失敗"); toggleLoading(false); }
+    };
+
+    function closeModal() { document.getElementById('formModal').style.display='none'; }
+    function toggleLoading(s) { document.getElementById('loading').style.display = s?'flex':'none'; }
+
+    function exportExcel() {
+        const range = document.getElementById('exportRange').value;
+        const customMonth = document.getElementById('searchMonth').value;
+        const now = new Date();
+        const filtered = rawData.filter(d => {
+            const dDate = new Date(d.date);
+            if (customMonth) return d.date.startsWith(customMonth);
+            return range === 'year' ? dDate.getFullYear() === now.getFullYear() : (dDate.getFullYear() === now.getFullYear() && (dDate.getMonth()+1) === (now.getMonth()+1));
+        });
+        const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ '日期': fmtDate(d.date), '公司': d.company, '客戶': d.client, '廠商': d.vendor, '目的地': d.to_name, '公里數': d.distance, '報價': d.price, '備註': d.notes })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "報表");
+        XLSX.writeFile(wb, `報表_${customMonth || range}.xlsx`);
+    }
+
+    function printOrder(id) {
+        const d = rawData.find(x => String(x.id) === String(id));
+        if (!d) return alert("找不到資料");
+        const clientInfo = masterData.clients.find(c => c.客戶簡稱 === d.client) || {};
+        document.getElementById('p-company').innerText = d.company + " 派車申請單";
+        document.getElementById('p-date').innerText = fmtDate(d.date);
+        document.getElementById('p-time').innerText = fmtTime(d.time);
+        document.getElementById('p-client').innerText = d.client || "";
+        document.getElementById('p-contact').innerText = clientInfo.聯絡人 || "__________";
+        document.getElementById('p-phone').innerText = clientInfo.電話 || "__________";
+        document.getElementById('p-applicant').innerText = d.applicant || "";
+        document.getElementById('p-route').innerText = `${d.from} ⮕ ${d.to_name}`;
+        document.getElementById('p-addr').innerText = d.to_addr || "";
+        document.getElementById('p-vspec').innerText = d.vspec || "";
+        document.getElementById('p-vqty').innerText = d.vqty || "1";
+        document.getElementById('p-vendor').innerText = d.vendor || "自行派車"; 
+        document.getElementById('p-price').innerText = d.price ? `$${Number(d.price).toLocaleString()}` : "$0";
+        document.getElementById('p-notes').innerText = d.notes || "";
+        document.getElementById('p-cargo').innerHTML = d.cargo.map(c => `<tr><td class="border-2 border-black p-2">${c.n}</td><td class="border-2 border-black p-2 text-center">${c.q}${c.u}</td></tr>`).join('');
+        window.print();
+    }
+
+    async function deleteOrder(id) {
+        if (!confirm("確定要刪除？")) return;
+        toggleLoading(true);
+        try {
+            await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', data: { id } }) });
+            setTimeout(syncData, 1500);
+        } catch (err) { alert("刪除失敗"); toggleLoading(false); }
+    }
+
+    async function approveOrder(id) {
+        const d = rawData.find(x => String(x.id) === String(id));
+        if (!d) return;
+        const newStatus = !d.isApproved; 
+        const actionName = newStatus ? "覆核" : "取消覆核";
+        if (!confirm(`確定要${actionName}此筆單據？`)) return;
+        toggleLoading(true);
+        try {
+            await fetch(GAS_URL, { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                body: JSON.stringify({ action: 'approve', data: { id: id, isApproved: newStatus } }) 
+            });
+            setTimeout(syncData, 1500);
+        } catch (err) { alert(actionName + "失敗"); toggleLoading(false); }
+    }
+    
+    let currentSettingMode = ''; 
+    function openSetting(mode) {
+        currentSettingMode = mode;
+        const titleEl = document.getElementById('settingTitle');
+        if (titleEl) titleEl.innerText = mode === 'vehicles' ? '⚙️ 管理車輛規格' : '⚙️ 管理配合廠商';
+        renderSettingList();
+        document.getElementById('settingModal').style.display = 'flex';
+    }
+    function closeSettingModal() { document.getElementById('settingModal').style.display = 'none'; }
+    function renderSettingList() {
+        const list = document.getElementById('settingList');
+        if (!list) return;
+        const data = currentSettingMode === 'vehicles' ? masterData.vehicles : masterData.vendors;
+        list.innerHTML = data.map((item, index) => {
+            const name = item['車輛規格'] || item['廠商名稱'] || item['vendor'] || '未命名項目';
+            return `<div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border mb-2"><span class="font-bold text-slate-700 text-lg">${name}</span><button onclick="deleteSettingItem(${index})" class="text-rose-500 text-2xl font-bold px-2">&times;</button></div>`;
+        }).join('');
+    }
+    async function addSettingItem() {
+        const input = document.getElementById('newItemInput');
+        const val = input.value.trim();
+        if (!val) return alert("請輸入名稱");
+        toggleLoading(true);
+        try {
+            await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'updateConfig', type: currentSettingMode, method: 'add', value: val }) });
+            input.value = '';
+            setTimeout(async () => { await syncData(); renderSettingList(); }, 1500);
+        } catch (e) { alert("新增失敗"); toggleLoading(false); }
+    }
+    document.addEventListener('DOMContentLoaded', syncData);
+</script>
 </body>
 </html>
