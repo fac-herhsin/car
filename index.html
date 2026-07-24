@@ -411,7 +411,18 @@
             if (customMonth) return d.date.startsWith(customMonth);
             return range === 'year' ? dDate.getFullYear() === now.getFullYear() : (dDate.getFullYear() === now.getFullYear() && (dDate.getMonth()+1) === (now.getMonth()+1));
         });
-        const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ '日期': fmtDate(d.date), '公司': d.company, '客戶': d.client, '廠商': d.vendor, '目的地': d.to_name, '公里數': d.distance, '報價': d.price, '備註': d.notes })));
+        const ws = XLSX.utils.json_to_sheet(filtered.map(d => ({ 
+            '日期': fmtDate(d.date), 
+            '公司': d.company, 
+            '客戶': d.client, 
+            '廠商': d.vendor, 
+            '目的地': d.to_name, 
+            '公里數': d.distance, 
+            '車種': d.vspec || '',        
+            '需求數量': d.vqty || '1',     
+            '重量(kg)': d.wt || '',
+            '報價': d.price, 
+            '備註': d.notes })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "報表");
         XLSX.writeFile(wb, `報表_${customMonth || range}.xlsx`);
