@@ -289,14 +289,15 @@
         if (c) document.getElementById('f-to-addr').value = c.下貨地址 || '';
     }
 
-    function filterData() {
+        function filterData() {
         const clientQ = document.getElementById('searchClient').value.toLowerCase();
         const monthQ = document.getElementById('searchMonth').value;
         const tbody = document.getElementById('dataTable');
         
         let filtered = rawData.filter(d => {
+            const formattedDate = fmtDate(d.date); // <-- 關鍵修改：先將日期轉為 YYYY-MM-DD 格式
             const matchClient = (d.client || "").toLowerCase().includes(clientQ);
-            const matchMonth = !monthQ || d.date.startsWith(monthQ);
+            const matchMonth = !monthQ || formattedDate.startsWith(monthQ); // <-- 改用格式化後的日期來比對
             return matchClient && matchMonth;
         });
 
